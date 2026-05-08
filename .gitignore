@@ -37,3 +37,5 @@ pnpm-debug.log*
 # Cache
 *.tsbuildinfo
 .eslintcache
+
+password supabase.txt
