@@ -251,19 +251,22 @@ export const KelolaRules = () => {
 
               {/* Preview Rule */}
               {selectedPenyakit && selectedGejalaIds.length > 0 && (
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2 text-sm">Preview Rule:</h4>
-                  <p className="text-sm text-blue-700 font-mono">
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                  <h4 className="font-semibold text-blue-900 mb-3 text-sm">Preview Rule:</h4>
+                  <div className="text-sm text-blue-800 font-mono bg-white rounded-lg p-3 border border-blue-100 leading-relaxed">
                     <span className="text-pink-600 font-bold">IF</span>{' '}
                     {selectedGejalaIds.map((id, idx) => (
                       <span key={id}>
-                        {getGejalaKode(id)}
-                        {idx < selectedGejalaIds.length - 1 ? ' <span className="text-gray-400">AND</span> ' : ''}
+                        <span className="font-semibold text-blue-700">{getGejalaKode(id)}</span>
+                        {idx < selectedGejalaIds.length - 1 && (
+                          <span className="text-gray-400 mx-1">AND</span>
+                        )}
                       </span>
                     ))}
                     {' '}<span className="text-pink-600 font-bold">THEN</span>{' '}
-                    {getPenyakitKode(selectedPenyakit)} - {getPenyakitName(selectedPenyakit)}
-                  </p>
+                    <span className="font-semibold text-emerald-700">{getPenyakitKode(selectedPenyakit)}</span>
+                    <span className="text-gray-500"> — {getPenyakitName(selectedPenyakit)}</span>
+                  </div>
                 </div>
               )}
 
