@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,11 +13,44 @@ import {
   Calculator,
   Sparkles,
   ChevronRight,
-  Zap
+  Zap,
+  Bug
 } from 'lucide-react';
+import { fetchPenyakit, fetchGejala, fetchRules } from '@/services/supabaseService';
+import type { Penyakit, Gejala, Rule } from '@/types';
 
 export const LandingPage = () => {
   const navigate = useNavigate();
+
+  // State untuk data dari database
+  const [penyakitData, setPenyakitData] = useState<Penyakit[]>([]);
+  const [gejalaCount, setGejalaCount] = useState(0);
+  const [rulesCount, setRulesCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Pisahkan hama dan penyakit
+  const hamaList = penyakitData.filter(p => p.tipe === 'hama');
+  const penyakitList = penyakitData.filter(p => p.tipe === 'penyakit');
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [penyakitRes, gejalaRes, rulesRes] = await Promise.all([
+          fetchPenyakit(),
+          fetchGejala(),
+          fetchRules()
+        ]);
+        setPenyakitData(penyakitRes);
+        setGejalaCount(gejalaRes.length);
+        setRulesCount(rulesRes.length);
+      } catch (err) {
+        console.error('Gagal memuat data landing page:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const features = [
     {
@@ -52,17 +86,6 @@ export const LandingPage = () => {
       title: 'Certainty Factor',
       description: 'Hitung CF = CF(User) × CF(Pakar) untuk tingkat kepastian'
     }
-  ];
-
-  const penyakitList = [
-    'Busuk Batang',
-    'Layu Fusarium',
-    'Karat',
-    'Antraknosa',
-    'Bercak Coklat',
-    'Mosaik Virus',
-    'Rebah Semai',
-    'Kanker Batang'
   ];
 
   return (
@@ -188,7 +211,7 @@ export const LandingPage = () => {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">Forward Chaining + CF</p>
-                      <p className="text-sm text-gray-500">8 Penyakit | 20 Gejala | 24 Rules</p>
+                      <p className="text-sm text-gray-500">{penyakitData.length} Hama & Penyakit | {gejalaCount} Gejala | {rulesCount} Rules</p>
                     </div>
                   </div>
                 </div>
@@ -201,17 +224,21 @@ export const LandingPage = () => {
       {/* Stats Section */}
       <section className="py-12 bg-gradient-to-r from-pink-600 to-rose-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 text-center">
             <div>
-              <p className="text-4xl font-bold text-white">8</p>
+              <p className="text-4xl font-bold text-white">{hamaList.length}</p>
+              <p className="text-pink-100 mt-1">Jenis Hama</p>
+            </div>
+            <div>
+              <p className="text-4xl font-bold text-white">{penyakitList.length}</p>
               <p className="text-pink-100 mt-1">Jenis Penyakit</p>
             </div>
             <div>
-              <p className="text-4xl font-bold text-white">20</p>
+              <p className="text-4xl font-bold text-white">{gejalaCount}</p>
               <p className="text-pink-100 mt-1">Gejala (dengan CF)</p>
             </div>
             <div>
-              <p className="text-4xl font-bold text-white">24</p>
+              <p className="text-4xl font-bold text-white">{rulesCount}</p>
               <p className="text-pink-100 mt-1">Rules Forward Chaining</p>
             </div>
             <div>
@@ -352,35 +379,83 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      {/* Penyakit Section */}
+      {/* Hama & Penyakit Section */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium mb-4">
               <Leaf className="w-4 h-4" />
-              Penyakit yang Dideteksi
+              Hama & Penyakit yang Dideteksi
             </span>
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              8 Jenis Penyakit Buah Naga
+              {penyakitData.length} Jenis Hama & Penyakit Buah Naga
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Sistem dapat mendeteksi berbagai penyakit umum pada tanaman buah naga
+              Sistem dapat mendeteksi berbagai hama dan penyakit umum pada tanaman buah naga
             </p>
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {penyakitList.map((penyakit, index) => (
-              <div 
-                key={index}
-                className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-              >
-                <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Stethoscope className="w-5 h-5 text-white" />
+
+          {/* Hama */}
+          {hamaList.length > 0 && (
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-amber-500 rounded-lg flex items-center justify-center">
+                  <Bug className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-gray-700 font-medium text-sm">{penyakit}</span>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Hama <span className="text-orange-500">({hamaList.length})</span>
+                </h3>
               </div>
-            ))}
-          </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {hamaList.map((hama) => (
+                  <div 
+                    key={hama.id}
+                    className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm border border-orange-100 hover:shadow-md hover:border-orange-200 transition-all"
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Bug className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-gray-700 font-medium text-sm">{hama.nama}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Penyakit */}
+          {penyakitList.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-gradient-to-br from-pink-400 to-rose-500 rounded-lg flex items-center justify-center">
+                  <Stethoscope className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Penyakit <span className="text-pink-500">({penyakitList.length})</span>
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {penyakitList.map((penyakit) => (
+                  <div 
+                    key={penyakit.id}
+                    className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-pink-200 transition-all"
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Stethoscope className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="text-gray-700 font-medium text-sm">{penyakit.nama}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {loading && (
+            <div className="text-center text-gray-400 py-8">
+              <div className="animate-spin w-8 h-8 border-4 border-pink-200 border-t-pink-600 rounded-full mx-auto mb-3" />
+              Memuat data...
+            </div>
+          )}
         </div>
       </section>
 

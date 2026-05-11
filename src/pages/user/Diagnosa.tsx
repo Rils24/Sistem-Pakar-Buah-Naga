@@ -26,6 +26,7 @@ interface DiagnosaProps {
 
 interface Jawaban {
   nodeId: string;
+  gejalaId: string;
   kodeGejala: string;
   namaGejala: string;
   jawaban: 'ya' | 'tidak';
@@ -39,11 +40,13 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
   const [hasil, setHasil] = useState<string | null>(null);
   const [cfTotal, setCfTotal] = useState<number>(0);
   const [detailPerhitungan, setDetailPerhitungan] = useState<any[]>([]);
+  const [allCFResults, setAllCFResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   
   // Data dari Supabase
   const [pohonKeputusan, setPohonKeputusan] = useState<any[]>([]);
   const [penyakitList, setPenyakitList] = useState<any[]>([]);
+  const [rulesRef, setRulesRef] = useState<any[]>([]);
   const [isDataReady, setIsDataReady] = useState(false);
 
   // Build pohon keputusan secara dinamis dari rules + gejala + penyakit
@@ -56,6 +59,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
           fetchPenyakit()
         ]);
         setPenyakitList(penyakitData);
+        setRulesRef(rulesData);
 
         // Helper: cari gejala by id
         const getGejala = (id: string) => gejalaData.find((g: any) => g.id === id);
@@ -132,6 +136,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
 
               nodes.push({
                 id: nodeId,
+                gejalaId: gId,
                 kodeGejala: gejala?.kode || gId.toUpperCase(),
                 namaGejala: gejala?.nama ? `Apakah ${gejala.nama.charAt(0).toLowerCase()}${gejala.nama.slice(1)}?` : gId,
                 ya: yaTarget,
@@ -191,6 +196,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     // Simpan jawaban
     const newJawaban: Jawaban = {
       nodeId: currentNode.id,
+      gejalaId: currentNode.gejalaId || '',
       kodeGejala: currentNode.kodeGejala,
       namaGejala: currentNode.namaGejala,
       jawaban,
@@ -228,75 +234,103 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     }, 500);
   }, [currentNode, jawabanList]);
 
-  // Hitung CF dari jawaban
-  // CF User = 1 (Ya) atau 0 (Tidak)
-  const calculateCFResult = async (jawabans: Jawaban[], penyakitId: string) => {
-    const yaJawabans = jawabans.filter(j => j.jawaban === 'ya');
-    
+  // Hitung CF untuk SEMUA penyakit berdasarkan gejala "Ya"
+  const calculateCFResult = async (jawabans: Jawaban[], confirmedPenyakitId: string) => {
+    const yaJawabans = jawabans.filter(j => j.jawaban === 'ya' && j.gejalaId);
+
     if (yaJawabans.length === 0) {
       setCfTotal(0);
       setDetailPerhitungan([]);
+      setAllCFResults([]);
       return;
     }
 
-    // CF perhitungan: CF = CF(User) × CF(Pakar)
-    // User memberikan jawaban Ya = 1.0, Tidak = 0.0
-    const cfUser = 1.0;
-    
-    let cfKombinasi = 0;
-    const details: any[] = [];
+    const yaGejalaIds = new Set(yaJawabans.map(j => j.gejalaId));
 
-    yaJawabans.forEach((j, idx) => {
-      const cfHasil = cfUser * j.cfPakar;
-      const cfSebelumnya = cfKombinasi;
-      cfKombinasi = cfKombinasi + cfHasil * (1 - cfKombinasi);
+    // ── Hitung CF untuk SETIAP penyakit ─────────────────────────────
+    const allResults: any[] = [];
 
-      details.push({
-        step: idx + 1,
-        gejala: j.namaGejala,
-        cfUser,
-        cfPakar: j.cfPakar,
-        cfHasil: cfHasil.toFixed(3),
-        cfKombinasi: cfKombinasi.toFixed(3),
-        rumus: idx === 0 
-          ? `CF = ${cfUser} × ${j.cfPakar} = ${cfHasil.toFixed(3)}`
-          : `CF = ${cfSebelumnya.toFixed(3)} + ${cfHasil.toFixed(3)} × (1 - ${cfSebelumnya.toFixed(3)}) = ${cfKombinasi.toFixed(3)}`
+    penyakitList.forEach((p: any) => {
+      // Kumpulkan semua gejala_ids dari semua rules penyakit ini
+      const pRules = rulesRef.filter((r: any) => r.penyakit_id === p.id);
+      if (pRules.length === 0) return;
+
+      const allGejalaForP = new Set<string>(pRules.flatMap((r: any) => r.gejala_ids as string[]));
+
+      // Gejala yang dijawab "Ya" DAN termasuk dalam penyakit ini
+      const matching = yaJawabans.filter(j => allGejalaForP.has(j.gejalaId));
+      if (matching.length === 0) return;
+
+      // Kombinasi CF
+      let cfKombinasi = 0;
+      const details: any[] = [];
+      matching.forEach((j, idx) => {
+        const cfHasil = 1.0 * j.cfPakar;
+        const cfSebelumnya = cfKombinasi;
+        cfKombinasi = cfKombinasi + cfHasil * (1 - cfKombinasi);
+        details.push({
+          step: idx + 1,
+          gejala: j.namaGejala,
+          cfUser: 1.0,
+          cfPakar: j.cfPakar,
+          cfHasil: cfHasil.toFixed(3),
+          cfKombinasi: cfKombinasi.toFixed(3),
+          rumus: idx === 0
+            ? `CF = 1.0 × ${j.cfPakar} = ${cfHasil.toFixed(3)}`
+            : `CF = ${cfSebelumnya.toFixed(3)} + ${cfHasil.toFixed(3)} × (1 - ${cfSebelumnya.toFixed(3)}) = ${cfKombinasi.toFixed(3)}`
+        });
+      });
+
+      allResults.push({
+        penyakit_id: p.id,
+        nama_penyakit: p.nama,
+        tipe: p.tipe,
+        cf_value: cfKombinasi,
+        persentase: Math.round(cfKombinasi * 100),
+        gejala_cocok: matching.length,
+        total_gejala: allGejalaForP.size,
+        detail_perhitungan: details
       });
     });
 
-    setCfTotal(cfKombinasi);
-    setDetailPerhitungan(details);
+    // Urutkan dari CF tertinggi
+    allResults.sort((a, b) => b.cf_value - a.cf_value);
+    setAllCFResults(allResults);
 
-    // Simpan hasil ke Supabase
-    const penyakit = getPenyakitById(penyakitId);
+    // Primary = penyakit yang terkonfirmasi dari tree, atau tertinggi
+    const primary = allResults.find(r => r.penyakit_id === confirmedPenyakitId) || allResults[0];
+    setCfTotal(primary?.cf_value || 0);
+    setDetailPerhitungan(primary?.detail_perhitungan || []);
+
+    // ── Simpan ke Supabase ──────────────────────────────────────────
+    const penyakit = getPenyakitById(confirmedPenyakitId);
     if (penyakit) {
       const hasilDiagnosa = {
         id: `d${Date.now()}`,
         user_id: user.id,
         tanggal: new Date().toISOString(),
         gejala_dipilih: yaJawabans.map(j => ({
-          gejala_id: j.nodeId,
+          gejala_id: j.gejalaId,
           nama_gejala: j.namaGejala,
-          cf_user: cfUser,
+          cf_user: 1.0,
           cf_pakar: j.cfPakar
         })),
-        hasil_cf: [{
-          penyakit_id: penyakitId,
-          nama_penyakit: penyakit.nama,
-          cf_value: cfKombinasi,
-          persentase: Math.round(cfKombinasi * 100)
-        }],
-        penyakit_terpilih: penyakitId,
+        hasil_cf: allResults.map(r => ({
+          penyakit_id: r.penyakit_id,
+          nama_penyakit: r.nama_penyakit,
+          cf_value: r.cf_value,
+          persentase: r.persentase
+        })),
+        penyakit_terpilih: confirmedPenyakitId,
         nama_penyakit_terpilih: penyakit.nama,
-        cf_tertinggi: cfKombinasi,
+        cf_tertinggi: primary?.cf_value || 0,
         solusi: penyakit.solusi
       };
 
       try {
         await insertHasilDiagnosa(hasilDiagnosa);
       } catch (err) {
-        console.error('Gagal menyimpan hasil diagnosa ke Supabase:', err);
-        // Fallback: simpan ke localStorage
+        console.error('Gagal menyimpan hasil diagnosa:', err);
         const existing = JSON.parse(localStorage.getItem('hasilDiagnosa') || '[]');
         existing.push(hasilDiagnosa);
         localStorage.setItem('hasilDiagnosa', JSON.stringify(existing));
@@ -310,6 +344,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     setHasil(null);
     setCfTotal(0);
     setDetailPerhitungan([]);
+    setAllCFResults([]);
   };
 
   const getCFInterpretasi = (cf: number): string => {
@@ -494,7 +529,64 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
           </CardContent>
         </Card>
 
-        {/* Detail Perhitungan CF */}
+        {/* Semua Kemungkinan Penyakit (ranked by CF) */}
+        {allCFResults.length > 1 && (
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-6">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 text-base">
+                <span className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <GitBranch className="w-4 h-4 text-indigo-600" />
+                </span>
+                Kemungkinan Penyakit/Hama Lain
+                <span className="ml-auto text-xs text-gray-400 font-normal">{allCFResults.length} terdeteksi</span>
+              </h4>
+              <div className="space-y-3">
+                {allCFResults.map((r, idx) => (
+                  <div key={r.penyakit_id} className={`rounded-xl p-4 border transition-all ${
+                    idx === 0
+                      ? 'bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200'
+                      : 'bg-gray-50 border-gray-100'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
+                        idx === 0 ? 'bg-pink-500' : 'bg-gray-400'
+                      }`}>{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`font-semibold text-sm ${
+                            idx === 0 ? 'text-pink-900' : 'text-gray-700'
+                          }`}>{r.nama_penyakit}</span>
+                          <span className={`text-sm font-bold flex-shrink-0 ${
+                            idx === 0 ? 'text-pink-600' : 'text-gray-500'
+                          }`}>{r.persentase}%</span>
+                        </div>
+                        <div className="mt-1.5 w-full bg-gray-200 rounded-full h-1.5">
+                          <div
+                            className={`h-1.5 rounded-full transition-all ${
+                              idx === 0
+                                ? 'bg-gradient-to-r from-pink-400 to-rose-500'
+                                : 'bg-gray-400'
+                            }`}
+                            style={{ width: `${r.persentase}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {r.gejala_cocok} dari {r.total_gejala} gejala cocok
+                          &nbsp;·&nbsp;
+                          <span className={r.tipe === 'hama' ? 'text-orange-500' : 'text-rose-500'}>
+                            {r.tipe === 'hama' ? '🐛 Hama' : '🦠 Penyakit'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Detail Perhitungan CF penyakit utama */}
         {detailPerhitungan.length > 0 && (
           <Card className="border-0 shadow-md">
             <CardContent className="p-6">
@@ -507,25 +599,20 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
               <div className="space-y-3">
                 {detailPerhitungan.map((d, idx) => (
                   <div key={idx} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-7 h-7 bg-indigo-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                          {d.step}
-                        </span>
-                        <span className="text-gray-800 font-medium text-sm">{d.gejala}</span>
-                      </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-7 h-7 bg-indigo-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        {d.step}
+                      </span>
+                      <span className="text-gray-800 font-medium text-sm">{d.gejala}</span>
                     </div>
                     <div className="ml-9 space-y-1">
                       <p className="text-xs text-gray-500 font-mono bg-white rounded-md px-3 py-1.5 inline-block border border-gray-100">
                         CF User = 1 (Ya) &nbsp;|&nbsp; CF Pakar = {d.cfPakar}
                       </p>
-                      <p className="text-xs text-indigo-600 font-mono font-medium">
-                        {d.rumus}
-                      </p>
+                      <p className="text-xs text-indigo-600 font-mono font-medium">{d.rumus}</p>
                     </div>
                   </div>
                 ))}
-                {/* CF Final */}
                 <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl p-4 border border-pink-200">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-pink-800">CF Akhir</span>

@@ -287,7 +287,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
               {/* Hasil Utama */}
               <div className="flex items-center gap-6 p-5 bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl border border-pink-100">
                 <div className="flex-1">
-                  <p className="text-xs font-medium text-pink-500 uppercase tracking-wider mb-1">Hasil Diagnosa</p>
+                  <p className="text-xs font-medium text-pink-500 uppercase tracking-wider mb-1">Hasil Diagnosa Utama</p>
                   <h3 className="text-xl font-bold text-gray-900">
                     {selectedItem.nama_penyakit_terpilih || selectedItem.hasil_cf?.[0]?.nama_penyakit}
                   </h3>
@@ -303,6 +303,52 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                   </span>
                 </div>
               </div>
+
+              {/* Semua Hasil CF */}
+              {selectedItem.hasil_cf && selectedItem.hasil_cf.length > 1 && (
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                    <span className="w-6 h-6 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <Stethoscope className="w-3.5 h-3.5 text-indigo-600" />
+                    </span>
+                    Semua Kemungkinan
+                    <span className="ml-auto text-xs text-gray-400 font-normal">
+                      {selectedItem.hasil_cf.length} terdeteksi
+                    </span>
+                  </h4>
+                  <div className="space-y-2">
+                    {[...selectedItem.hasil_cf]
+                      .sort((a: any, b: any) => b.cf_value - a.cf_value)
+                      .map((r: any, idx: number) => (
+                        <div key={r.penyakit_id || idx} className={`rounded-xl p-3 border ${
+                          idx === 0 ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-100'
+                        }`}>
+                          <div className="flex items-center gap-3">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
+                              idx === 0 ? 'bg-pink-500' : 'bg-gray-400'
+                            }`}>{idx + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={`font-medium text-sm ${idx === 0 ? 'text-pink-900' : 'text-gray-700'}`}>
+                                  {r.nama_penyakit}
+                                </span>
+                                <span className={`text-sm font-bold flex-shrink-0 ${idx === 0 ? 'text-pink-600' : 'text-gray-500'}`}>
+                                  {r.persentase || Math.round((r.cf_value || 0) * 100)}%
+                                </span>
+                              </div>
+                              <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full ${idx === 0 ? 'bg-gradient-to-r from-pink-400 to-rose-500' : 'bg-gray-400'}`}
+                                  style={{ width: `${r.persentase || Math.round((r.cf_value || 0) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
 
               {/* Gejala yang Dipilih */}
               {selectedItem.gejala_dipilih && selectedItem.gejala_dipilih.length > 0 && (

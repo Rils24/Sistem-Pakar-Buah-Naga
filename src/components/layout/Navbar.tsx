@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Menu, X, Sprout, Home, Stethoscope, History, UserCircle } from 'lucide-react';
+import { User, LogOut, Menu, X, Sprout, Home, Stethoscope, History, UserCircle, FileText } from 'lucide-react';
 import { useState } from 'react';
 import type { User as UserType } from '@/types';
 
@@ -30,6 +30,7 @@ export const Navbar = ({ user, onLogout }: NavbarProps) => {
         { path: '/admin/gejala', label: 'Gejala', icon: Stethoscope },
         { path: '/admin/rules', label: 'Rules', icon: History },
         { path: '/admin/users', label: 'Users', icon: User },
+        { path: '/admin/laporan', label: 'Laporan', icon: FileText },
       ]
     : [
         { path: '/user', label: 'Beranda', icon: Home },

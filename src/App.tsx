@@ -10,6 +10,7 @@ import { KelolaPenyakit } from '@/pages/admin/KelolaPenyakit';
 import { KelolaGejala } from '@/pages/admin/KelolaGejala';
 import { KelolaRules } from '@/pages/admin/KelolaRules';
 import { KelolaUsers } from '@/pages/admin/KelolaUsers';
+import { LaporanDiagnosa } from '@/pages/admin/LaporanDiagnosa';
 import { UserDashboard } from '@/pages/user/UserDashboard';
 import { Diagnosa } from '@/pages/user/Diagnosa';
 import { Riwayat } from '@/pages/user/Riwayat';
@@ -148,6 +149,16 @@ function App() {
             <ProtectedRoute user={currentUser} allowedRole="admin">
               <Layout user={currentUser} onLogout={handleLogout}>
                 <KelolaUsers />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/laporan"
+          element={
+            <ProtectedRoute user={currentUser} allowedRole="admin">
+              <Layout user={currentUser} onLogout={handleLogout}>
+                <LaporanDiagnosa />
               </Layout>
             </ProtectedRoute>
           }
