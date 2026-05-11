@@ -115,8 +115,7 @@ export const LandingPage = () => {
                 Diagnosa Penyakit{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-rose-600">
                   Buah Naga
-                </span>{' '}
-                dengan AI
+                </span>
               </h1>
               
               <p className="text-lg text-gray-600 max-w-xl leading-relaxed">
