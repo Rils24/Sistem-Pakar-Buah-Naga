@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { fetchHasilDiagnosa, fetchUsers, deleteHasilDiagnosa } from '@/services/supabaseService';
+import { fetchHasilDiagnosa, fetchUsers, deleteHasilDiagnosa, fetchPenyakit } from '@/services/supabaseService';
 import {
   FileText,
   Search,
@@ -34,7 +34,11 @@ import {
   TrendingUp,
   Bug,
   Filter,
-  Download
+  Download,
+  ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -47,6 +51,9 @@ export const LaporanDiagnosa = () => {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+  const [penyakitList, setPenyakitList] = useState<any[]>([]);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -55,11 +62,13 @@ export const LaporanDiagnosa = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [diagnosaData, usersData] = await Promise.all([
+      const [diagnosaData, usersData, penyakitData] = await Promise.all([
         fetchHasilDiagnosa(),
-        fetchUsers()
+        fetchUsers(),
+        fetchPenyakit()
       ]);
       setLaporanList(diagnosaData);
+      setPenyakitList(penyakitData);
       const map: Record<string, string> = {};
       usersData.forEach((u: any) => { map[u.id] = u.nama; });
       setUserMap(map);
@@ -490,6 +499,52 @@ export const LaporanDiagnosa = () => {
                 </div>
               )}
 
+              {/* Semua Hasil CF */}
+              {selectedItem.hasil_cf && selectedItem.hasil_cf.length > 1 && (
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                    <span className="w-6 h-6 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <Stethoscope className="w-3.5 h-3.5 text-indigo-600" />
+                    </span>
+                    Semua Kemungkinan
+                    <span className="ml-auto text-xs text-gray-400 font-normal">
+                      {selectedItem.hasil_cf.length} terdeteksi
+                    </span>
+                  </h4>
+                  <div className="space-y-2">
+                    {[...selectedItem.hasil_cf]
+                      .sort((a: any, b: any) => b.cf_value - a.cf_value)
+                      .map((r: any, idx: number) => (
+                        <div key={r.penyakit_id || idx} className={`rounded-xl p-3 border ${
+                          idx === 0 ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-100'
+                        }`}>
+                          <div className="flex items-center gap-3">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
+                              idx === 0 ? 'bg-pink-500' : 'bg-gray-400'
+                            }`}>{idx + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={`font-medium text-sm ${idx === 0 ? 'text-pink-900' : 'text-gray-700'}`}>
+                                  {r.nama_penyakit}
+                                </span>
+                                <span className={`text-sm font-bold flex-shrink-0 ${idx === 0 ? 'text-pink-600' : 'text-gray-500'}`}>
+                                  {r.persentase || Math.round((r.cf_value || 0) * 100)}%
+                                </span>
+                              </div>
+                              <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full ${idx === 0 ? 'bg-gradient-to-r from-pink-400 to-rose-500' : 'bg-gray-400'}`}
+                                  style={{ width: `${r.persentase || Math.round((r.cf_value || 0) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {/* Solusi */}
               {selectedItem.solusi && selectedItem.solusi.length > 0 && (
                 <div>
@@ -511,6 +566,36 @@ export const LaporanDiagnosa = () => {
                   </div>
                 </div>
               )}
+
+              {/* Gambar Penyakit dari database */}
+              {(() => {
+                const penyakitId = selectedItem?.penyakit_terpilih;
+                const penyakit = penyakitList.find((p: any) => p.id === penyakitId);
+                if (!penyakit?.image_urls?.length) return null;
+                return (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                      <span className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
+                      </span>
+                      Gambar Penyakit
+                      <span className="ml-auto text-xs text-gray-400 font-normal">{penyakit.image_urls.length} gambar</span>
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {penyakit.image_urls.map((url: string, idx: number) => (
+                        <button key={idx}
+                          onClick={() => { setPreviewImages(penyakit.image_urls); setPreviewIndex(idx); }}
+                          className="relative group aspect-[4/3] rounded-lg overflow-hidden border border-gray-200 hover:border-pink-300 transition-all">
+                          <img src={url} alt={`${penyakit.nama} - ${idx+1}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Eye className="w-4 h-4 text-white" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Actions */}
               <div className="flex gap-3 pt-2 border-t border-gray-100">
@@ -563,6 +648,28 @@ export const LaporanDiagnosa = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Preview Modal */}
+      {previewImages.length > 0 && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewImages([])}>
+          <div className="relative max-w-3xl max-h-[85vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setPreviewImages([])}
+              className="absolute -top-3 -right-3 z-10 p-2 bg-white rounded-full shadow-lg text-gray-600 hover:text-gray-900 cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+            <img src={previewImages[previewIndex]} alt="Preview" className="max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl" />
+            {previewImages.length > 1 && (
+              <div className="flex items-center gap-4 mt-4">
+                <button onClick={() => setPreviewIndex(i => i > 0 ? i-1 : previewImages.length-1)}
+                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"><ChevronLeft className="w-5 h-5" /></button>
+                <span className="text-white text-sm font-medium">{previewIndex + 1} / {previewImages.length}</span>
+                <button onClick={() => setPreviewIndex(i => i < previewImages.length-1 ? i+1 : 0)}
+                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"><ChevronRight className="w-5 h-5" /></button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
