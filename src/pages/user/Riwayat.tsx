@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { fetchHasilDiagnosaByUserId, deleteHasilDiagnosa } from '@/services/supabaseService';
+import { fetchHasilDiagnosaByUserId, deleteHasilDiagnosa, fetchPenyakit } from '@/services/supabaseService';
 import { 
   History, 
   Calendar, 
@@ -29,7 +29,11 @@ import {
   ArrowRight,
   CheckCircle,
   Thermometer,
-  AlertTriangle
+  AlertTriangle,
+  ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { User } from '@/types';
@@ -46,6 +50,9 @@ export const Riwayat = ({ user }: RiwayatProps) => {
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [penyakitList, setPenyakitList] = useState<any[]>([]);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -54,8 +61,12 @@ export const Riwayat = ({ user }: RiwayatProps) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const data = await fetchHasilDiagnosaByUserId(user.id);
+      const [data, pData] = await Promise.all([
+        fetchHasilDiagnosaByUserId(user.id),
+        fetchPenyakit()
+      ]);
       setRiwayatList(data);
+      setPenyakitList(pData);
     } catch (err) {
       console.error('Gagal memuat riwayat:', err);
     } finally {
@@ -257,14 +268,29 @@ export const Riwayat = ({ user }: RiwayatProps) => {
       {/* DETAIL DIALOG */}
       {/* ============================================================ */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto p-0"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => {
+            if (previewImages.length > 0) e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            if (previewImages.length > 0) e.preventDefault();
+          }}
+        >
           {/* Gradient Header */}
-          <div className="bg-gradient-to-r from-pink-600 to-rose-600 p-6 text-white">
+          <div className="bg-gradient-to-r from-pink-600 to-rose-600 p-6 text-white relative">
             <DialogHeader>
-              <DialogTitle className="text-white text-lg font-bold">
+              <DialogTitle className="text-white text-lg font-bold pr-8">
                 Detail Diagnosa
               </DialogTitle>
             </DialogHeader>
+            <button
+              onClick={() => setSelectedItem(null)}
+              className="absolute top-4 right-4 p-1 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
             {selectedItem && (
               <div className="mt-3 flex items-center gap-2 text-pink-100 text-sm">
                 <Calendar className="w-4 h-4" />
@@ -405,6 +431,36 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                 </div>
               )}
 
+              {/* Gambar Penyakit dari database */}
+              {(() => {
+                const penyakitId = selectedItem?.penyakit_terpilih;
+                const penyakit = penyakitList.find((p: any) => p.id === penyakitId);
+                if (!penyakit?.image_urls?.length) return null;
+                return (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                      <span className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
+                      </span>
+                      Gambar Penyakit
+                      <span className="ml-auto text-xs text-gray-400 font-normal">{penyakit.image_urls.length} gambar</span>
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {penyakit.image_urls.map((url: string, idx: number) => (
+                        <button key={idx}
+                          onClick={() => { setPreviewImages(penyakit.image_urls); setPreviewIndex(idx); }}
+                          className="relative group aspect-[4/3] rounded-lg overflow-hidden border border-gray-200 hover:border-pink-300 transition-all">
+                          <img src={url} alt={`${penyakit.nama} - ${idx+1}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Eye className="w-4 h-4 text-white" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Actions di dialog */}
               <div className="flex gap-3 pt-2 border-t border-gray-100">
                 <Button
@@ -489,6 +545,47 @@ export const Riwayat = ({ user }: RiwayatProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Preview - Nested Dialog so Radix manages focus/pointer-events correctly */}
+      <Dialog open={previewImages.length > 0} onOpenChange={(open) => { if (!open) setPreviewImages([]); }}>
+        <DialogContent
+          className="max-w-4xl w-auto bg-transparent border-none shadow-none p-0 [&>button]:hidden"
+          showCloseButton={false}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>Preview Gambar</DialogTitle>
+          </DialogHeader>
+          <div className="relative flex flex-col items-center">
+            <button
+              onClick={() => setPreviewImages([])}
+              className="absolute -top-3 -right-3 z-10 p-2 bg-white rounded-full shadow-lg text-gray-600 hover:text-gray-900 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {previewImages.length > 0 && (
+              <img src={previewImages[previewIndex]} alt="Preview" className="max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl" />
+            )}
+            {previewImages.length > 1 && (
+              <div className="flex items-center gap-4 mt-4">
+                <button
+                  onClick={() => setPreviewIndex(i => i > 0 ? i-1 : previewImages.length-1)}
+                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-white text-sm font-medium">{previewIndex + 1} / {previewImages.length}</span>
+                <button
+                  onClick={() => setPreviewIndex(i => i < previewImages.length-1 ? i+1 : 0)}
+                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

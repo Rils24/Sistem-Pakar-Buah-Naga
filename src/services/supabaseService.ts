@@ -58,6 +58,60 @@ export const deletePenyakit = async (id: string): Promise<void> => {
   if (error) throw error;
 };
 
+// Upload gambar penyakit ke Supabase Storage (single file)
+export const uploadPenyakitImage = async (file: File): Promise<string> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `penyakit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+  const filePath = `${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('penyakit-images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from('penyakit-images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+
+// Upload multiple gambar penyakit
+export const uploadMultiplePenyakitImages = async (files: File[]): Promise<string[]> => {
+  const urls: string[] = [];
+  for (const file of files) {
+    const url = await uploadPenyakitImage(file);
+    urls.push(url);
+  }
+  return urls;
+};
+
+// Hapus satu gambar penyakit dari Supabase Storage
+export const deletePenyakitImage = async (imageUrl: string): Promise<void> => {
+  const parts = imageUrl.split('/penyakit-images/');
+  if (parts.length < 2) return;
+  const filePath = parts[1];
+
+  const { error } = await supabase.storage
+    .from('penyakit-images')
+    .remove([filePath]);
+
+  if (error) {
+    console.error('Gagal menghapus gambar:', error);
+  }
+};
+
+// Hapus multiple gambar penyakit dari Supabase Storage
+export const deleteMultiplePenyakitImages = async (imageUrls: string[]): Promise<void> => {
+  for (const url of imageUrls) {
+    await deletePenyakitImage(url);
+  }
+};
+
 // ============================================================
 // GEJALA
 // ============================================================

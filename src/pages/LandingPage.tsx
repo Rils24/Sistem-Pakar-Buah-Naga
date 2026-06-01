@@ -541,7 +541,7 @@ export const LandingPage = () => {
           </div>
           <div className="border-t border-gray-800 pt-8 text-center">
             <p className="text-sm">
-              © 2024 Sistem Pakar Buah Naga. Forward Chaining + Certainty Factor.
+              © 2026 Sistem Pakar Buah Naga.
             </p>
           </div>
         </div>

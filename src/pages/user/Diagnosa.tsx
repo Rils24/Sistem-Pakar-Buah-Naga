@@ -16,7 +16,11 @@ import {
   Sprout,
   Thermometer,
   History,
-  Loader2
+  Loader2,
+  ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import type { User } from '@/types';
 
@@ -42,6 +46,8 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
   const [detailPerhitungan, setDetailPerhitungan] = useState<any[]>([]);
   const [allCFResults, setAllCFResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
   
   // Data dari Supabase
   const [pohonKeputusan, setPohonKeputusan] = useState<any[]>([]);
@@ -507,6 +513,35 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
           </CardContent>
         </Card>
 
+        {/* Gambar Penyakit */}
+        {penyakit?.image_urls && penyakit.image_urls.length > 0 && (
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-6">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 text-base">
+                <span className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <ImageIcon className="w-4 h-4 text-purple-600" />
+                </span>
+                Gambar {isHama ? 'Hama' : 'Penyakit'}
+                <span className="ml-auto text-xs text-gray-400 font-normal">{penyakit.image_urls.length} gambar</span>
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {penyakit.image_urls.map((url: string, idx: number) => (
+                  <button
+                    key={idx}
+                    onClick={() => { setPreviewImages(penyakit.image_urls!); setPreviewIndex(idx); }}
+                    className="relative group aspect-[4/3] rounded-xl overflow-hidden border-2 border-gray-100 hover:border-pink-300 transition-all"
+                  >
+                    <img src={url} alt={`${penyakit.nama} - ${idx+1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white text-xs font-medium bg-black/50 px-3 py-1 rounded-full">Lihat</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Solusi */}
         <Card className="border-0 shadow-md">
           <CardContent className="p-6">
@@ -685,6 +720,25 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
             Diagnosa Ulang
           </Button>
         </div>
+
+        {/* Image Preview Modal */}
+        {previewImages.length > 0 && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewImages([])}>
+            <div className="relative max-w-3xl max-h-[85vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setPreviewImages([])} className="absolute -top-3 -right-3 z-10 p-2 bg-white rounded-full shadow-lg text-gray-600 hover:text-gray-900">
+                <X className="w-5 h-5" />
+              </button>
+              <img src={previewImages[previewIndex]} alt="Preview" className="max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl" />
+              {previewImages.length > 1 && (
+                <div className="flex items-center gap-4 mt-4">
+                  <button onClick={() => setPreviewIndex(i => i > 0 ? i-1 : previewImages.length-1)} className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg"><ChevronLeft className="w-5 h-5" /></button>
+                  <span className="text-white text-sm font-medium">{previewIndex + 1} / {previewImages.length}</span>
+                  <button onClick={() => setPreviewIndex(i => i < previewImages.length-1 ? i+1 : 0)} className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg"><ChevronRight className="w-5 h-5" /></button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

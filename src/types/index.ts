@@ -9,6 +9,7 @@ export interface Penyakit {
   deskripsi: string;
   solusi: string[];
   tipe: 'hama' | 'penyakit';
+  image_urls?: string[];
   created_at?: string;
 }
 
