@@ -177,13 +177,10 @@ export const LaporanDiagnosa = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <span className="w-9 h-9 bg-pink-100 rounded-xl flex items-center justify-center">
-              <FileText className="w-5 h-5 text-pink-600" />
-            </span>
+          <h1 className="text-2xl font-bold text-gray-900">
             Laporan Diagnosa
           </h1>
-          <p className="text-gray-400 text-sm mt-1 ml-11">
+          <p className="text-gray-400 text-sm mt-1">
             Semua hasil diagnosa dari seluruh user
           </p>
         </div>
@@ -315,7 +312,6 @@ export const LaporanDiagnosa = () => {
 
       {/* Tabel Laporan */}
       <Card className="border-0 shadow-md overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-pink-400 to-rose-500" />
         <CardContent className="p-0">
           {filteredList.length > 0 ? (
             <div className="overflow-x-auto">
