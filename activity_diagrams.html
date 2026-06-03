@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Activity Diagrams - Sistem Pakar Buah Naga</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#fff;font-family:'Segoe UI',sans-serif;padding:30px;display:flex;flex-direction:column;align-items:center;gap:60px}
+h1{font-size:20px;margin-bottom:10px;color:#111}
+.diagram-wrap{page-break-after:always}
+h2{font-size:16px;text-align:center;margin-bottom:10px;color:#111}
+</style>
+</head>
+<body>
+<h1>Activity Diagrams — Sistem Pakar Diagnosa Hama dan Penyakit Buah Naga</h1>
+<div id="diagrams"></div>
+<script>
+const LW=240,PAD=30,NH=44,NW=160,DR=12,AR=10;
+
+function makeSVG(w,h){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  s.setAttribute('width',w);s.setAttribute('height',h);
+  s.style.maxWidth='100%';s.style.border='2px solid #111';
+  return s;
+}
+function el(tag,attrs,parent){
+  const e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(let k in attrs)e.setAttribute(k,attrs[k]);
+  if(parent)parent.appendChild(e);return e;
+}
+function txt(svg,x,y,text,size=11,anchor='middle',weight='normal'){
+  const lines=text.split('\n');
+  lines.forEach((line,i)=>{
+    el('text',{x,y:y+(i-(lines.length-1)/2)*14,
+      'text-anchor':anchor,'font-family':'Segoe UI,sans-serif',
+      'font-size':size,'font-weight':weight,fill:'#111',
+      'dominant-baseline':'central'},svg).textContent=line;
+  });
+}
+function arrow(svg,x1,y1,x2,y2,dashed){
+  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+  if(len===0)return;
+  const ux=dx/len,uy=dy/len;
+  const attrs={x1,y1,x2,y2,stroke:'#111','stroke-width':1.2};
+  if(dashed)attrs['stroke-dasharray']='5,3';
+  el('line',attrs,svg);
+  const ax=x2-ux*8,ay=y2-uy*8;
+  const px=-uy*4,py=ux*4;
+  el('polygon',{points:`${x2},${y2} ${ax+px},${ay+py} ${ax-px},${ay-py}`,fill:'#111'},svg);
+}
+function polyArrow(svg,pts){
+  const ps=pts.map(p=>p.join(',')).join(' ');
+  el('polyline',{points:ps,fill:'none',stroke:'#111','stroke-width':1.2},svg);
+  const last=pts[pts.length-1],prev=pts[pts.length-2];
+  const dx=last[0]-prev[0],dy=last[1]-prev[1],len=Math.sqrt(dx*dx+dy*dy);
+  const ux=dx/len,uy=dy/len;
+  const ax=last[0]-ux*8,ay=last[1]-uy*8;
+  const px=-uy*4,py=ux*4;
+  el('polygon',{points:`${last[0]},${last[1]} ${ax+px},${ay+py} ${ax-px},${ay-py}`,fill:'#111'},svg);
+}
+
+function nodeCenter(n){return{x:LW/2+n.lane*LW+PAD,y:n.y};}
+function nodeBottom(n){const c=nodeCenter(n);
+  if(n.type==='start')return{x:c.x,y:c.y+DR};
+  if(n.type==='end')return{x:c.x,y:c.y+AR+3};
+  if(n.type==='decision')return{x:c.x,y:c.y+30};
+  return{x:c.x,y:c.y+NH/2};
+}
+function nodeTop(n){const c=nodeCenter(n);
+  if(n.type==='start')return{x:c.x,y:c.y-DR};
+  if(n.type==='end')return{x:c.x,y:c.y-AR-3};
+  if(n.type==='decision')return{x:c.x,y:c.y-30};
+  return{x:c.x,y:c.y-NH/2};
+}
+function nodeRight(n){const c=nodeCenter(n);
+  if(n.type==='decision')return{x:c.x+40,y:c.y};
+  return{x:c.x+NW/2,y:c.y};
+}
+function nodeLeft(n){const c=nodeCenter(n);
+  if(n.type==='decision')return{x:c.x-40,y:c.y};
+  return{x:c.x-NW/2,y:c.y};
+}
+
+function drawNode(svg,n){
+  const c=nodeCenter(n);
+  if(n.type==='start'){
+    el('circle',{cx:c.x,cy:c.y,r:DR,fill:'#111'},svg);
+  }else if(n.type==='end'){
+    el('circle',{cx:c.x,cy:c.y,r:AR+3,fill:'none',stroke:'#111','stroke-width':2},svg);
+    el('circle',{cx:c.x,cy:c.y,r:AR-1,fill:'#111'},svg);
+  }else if(n.type==='action'){
+    el('rect',{x:c.x-NW/2,y:c.y-NH/2,width:NW,height:NH,rx:10,ry:10,
+      fill:'none',stroke:'#111','stroke-width':1.4},svg);
+    txt(svg,c.x,c.y,n.text);
+  }else if(n.type==='decision'){
+    const pts=`${c.x},${c.y-30} ${c.x+40},${c.y} ${c.x},${c.y+30} ${c.x-40},${c.y}`;
+    el('polygon',{points:pts,fill:'none',stroke:'#111','stroke-width':1.4},svg);
+    txt(svg,c.x,c.y,n.text,10);
+  }
+}
+
+function drawDiagram(title,lanes,nodes,edges){
+  const wrap=document.createElement('div');
+  wrap.className='diagram-wrap';
+  const h2=document.createElement('h2');
+  h2.textContent='Activity Diagram — '+title;
+  wrap.appendChild(h2);
+
+  const maxY=Math.max(...nodes.map(n=>n.y))+60;
+  const w=lanes.length*LW+PAD*2;
+  const svg=makeSVG(w,maxY);
+
+  // Lane headers
+  el('rect',{x:0,y:0,width:w,height:35,fill:'none',stroke:'#111','stroke-width':1.5},svg);
+  lanes.forEach((name,i)=>{
+    const x=PAD+i*LW;
+    if(i>0)el('line',{x1:x,y1:0,x2:x,y2:maxY,stroke:'#111','stroke-width':1},svg);
+    txt(svg,x+LW/2,18,name,13,'middle','600');
+  });
+  el('line',{x1:0,y1:35,x2:w,y2:35,stroke:'#111','stroke-width':1},svg);
+
+  // Nodes
+  const nMap={};
+  nodes.forEach(n=>{nMap[n.id]=n;drawNode(svg,n);});
+
+  // Edges
+  edges.forEach(e=>{
+    const from=nMap[e.from],to=nMap[e.to];
+    if(!from||!to)return;
+
+    if(e.loop==='right'){
+      const fr=nodeRight(from),tt=nodeTop(to);
+      const rx=w-PAD/2-5;
+      polyArrow(svg,[[fr.x,fr.y],[rx,fr.y],[rx,tt.y],[tt.x,tt.y]]);
+      if(e.label)txt(svg,rx-5,fr.y+(tt.y-fr.y)/2,e.label,9,'end');
+    }else if(e.loop==='left'){
+      const fl=nodeLeft(from),tt=nodeTop(to);
+      const lx=PAD/2+5;
+      polyArrow(svg,[[fl.x,fl.y],[lx,fl.y],[lx,tt.y],[tt.x,tt.y]]);
+      if(e.label)txt(svg,lx+5,fl.y+(tt.y-fl.y)/2,e.label,9,'start');
+    }else if(e.side==='right'){
+      const fr=nodeRight(from),tt=nodeTop(to);
+      const midY=fr.y+(tt.y-fr.y)*0.3;
+      polyArrow(svg,[[fr.x,fr.y],[fr.x+20,fr.y],[fr.x+20,midY],[tt.x,midY],[tt.x,tt.y]]);
+      if(e.label)txt(svg,fr.x+25,fr.y,e.label,9,'start');
+    }else if(e.side==='left'){
+      const fl=nodeLeft(from),tt=nodeTop(to);
+      const midY=fl.y+(tt.y-fl.y)*0.3;
+      polyArrow(svg,[[fl.x,fl.y],[fl.x-20,fl.y],[fl.x-20,midY],[tt.x,midY],[tt.x,tt.y]]);
+      if(e.label)txt(svg,fl.x-25,fl.y,e.label,9,'end');
+    }else{
+      const fb=nodeBottom(from),tt=nodeTop(to);
+      if(from.lane===to.lane){
+        arrow(svg,fb.x,fb.y,tt.x,tt.y);
+      }else{
+        const midY=(fb.y+tt.y)/2;
+        polyArrow(svg,[[fb.x,fb.y],[fb.x,midY],[tt.x,midY],[tt.x,tt.y]]);
+      }
+      if(e.label){
+        const mx=(fb.x+tt.x)/2,my=(fb.y+tt.y)/2;
+        txt(svg,mx+30,my,e.label,9,'start');
+      }
+    }
+  });
+
+  wrap.appendChild(svg);
+  document.getElementById('diagrams').appendChild(wrap);
+}
+
+// ===== 1. LOGIN =====
+drawDiagram('Login',[' Admin/User','Sistem'],[
+  {id:'s',type:'start',lane:0,y:55},
+  {id:'a1',type:'action',lane:0,y:110,text:'Mengakses\nSistem'},
+  {id:'a2',type:'action',lane:1,y:190,text:'Menampilkan\nHalaman Awal'},
+  {id:'a3',type:'action',lane:0,y:270,text:'Request Login'},
+  {id:'a4',type:'action',lane:1,y:350,text:'Menampilkan\nForm Login'},
+  {id:'a5',type:'action',lane:0,y:440,text:'Memasukan Username\ndan Password'},
+  {id:'a6',type:'action',lane:0,y:530,text:'Menekan Tombol\nMasuk'},
+  {id:'a7',type:'action',lane:1,y:620,text:'Sistem Verifikasi\nKredensial'},
+  {id:'d1',type:'decision',lane:1,y:710,text:'Verifikasi?'},
+  {id:'a8',type:'action',lane:1,y:800,text:'Halaman Dashboard'},
+  {id:'e',type:'end',lane:1,y:870}
+],[
+  {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},
+  {from:'a3',to:'a4'},{from:'a4',to:'a5'},{from:'a5',to:'a6'},
+  {from:'a6',to:'a7'},{from:'a7',to:'d1'},
+  {from:'d1',to:'a8',label:'Benar'},
+  {from:'d1',to:'a4',loop:'right',label:'Kredensial\nTidak Cocok'},
+  {from:'a8',to:'e'}
+]);
+
+// ===== 2. REGISTER =====
+drawDiagram('Register',['User','Sistem'],[
+  {id:'s',type:'start',lane:0,y:55},
+  {id:'a1',type:'action',lane:0,y:110,text:'Mengakses Halaman\nRegister'},
+  {id:'a2',type:'action',lane:1,y:190,text:'Menampilkan\nForm Registrasi'},
+  {id:'a3',type:'action',lane:0,y:275,text:'Mengisi Nama, Email\ndan Password'},
+  {id:'a4',type:'action',lane:0,y:360,text:'Menekan Tombol\nDaftar'},
+  {id:'a5',type:'action',lane:1,y:445,text:'Validasi Data'},
+  {id:'d1',type:'decision',lane:1,y:530,text:'Valid?'},
+  {id:'a6',type:'action',lane:1,y:620,text:'Simpan Data User'},
+  {id:'a7',type:'action',lane:1,y:700,text:'Redirect ke\nHalaman Login'},
+  {id:'e',type:'end',lane:1,y:770}
+],[
+  {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},
+  {from:'a3',to:'a4'},{from:'a4',to:'a5'},{from:'a5',to:'d1'},
+  {from:'d1',to:'a6',label:'Ya'},
+  {from:'d1',to:'a2',loop:'right',label:'Tidak Valid'},
+  {from:'a6',to:'a7'},{from:'a7',to:'e'}
+]);
+
+// ===== 3. LOGOUT =====
+drawDiagram('Logout',['Admin/User','Sistem'],[
+  {id:'s',type:'start',lane:0,y:55},
+  {id:'a1',type:'action',lane:0,y:120,text:'Menekan Tombol\nLogout'},
+  {id:'a2',type:'action',lane:1,y:210,text:'Menghapus Sesi\nPengguna'},
+  {id:'a3',type:'action',lane:1,y:300,text:'Redirect ke\nHalaman Awal'},
+  {id:'e',type:'end',lane:1,y:370}
+],[
+  {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},{from:'a3',to:'e'}
+]);
+
+// ===== 4. MELAKUKAN DIAGNOSA =====
+drawDiagram('Melakukan Diagnosa',['User','Sistem'],[
+  {id:'s',type:'start',lane:0,y:55},
+  {id:'a1',type:'action',lane:0,y:115,text:'Memilih Menu\nDiagnosa'},
+  {id:'a2',type:'action',lane:1,y:200,text:'Menampilkan\nHalaman Diagnosa'},
+  {id:'a3',type:'action',lane:0,y:290,text:'Memilih Gejala\nyang Dialami'},
+  {id:'a4',type:'action',lane:0,y:380,text:'Mengisi Nilai\nKeyakinan (CF User)'},
+  {id:'a5',type:'action',lane:0,y:470,text:'Menekan Tombol\nDiagnosa'},
+  {id:'a6',type:'action',lane:1,y:555,text:'Proses Forward\nChaining'},
+  {id:'a7',type:'action',lane:1,y:640,text:'Hitung Certainty\nFactor'},
+  {id:'a8',type:'action',lane:1,y:725,text:'Menampilkan\nHasil Diagnosa'},
+  {id:'e',type:'end',lane:1,y:795}
+],[
+  {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},
+  {from:'a3',to:'a4'},{from:'a4',to:'a5'},{from:'a5',to:'a6'},
+  {from:'a6',to:'a7'},{from:'a7',to:'a8'},{from:'a8',to:'e'}
+]);
+
+// ===== 5. MELIHAT RIWAYAT DIAGNOSA =====
+drawDiagram('Melihat Riwayat Diagnosa',['User','Sistem'],[
+  {id:'s',type:'start',lane:0,y:55},
+  {id:'a1',type:'action',lane:0,y:115,text:'Memilih Menu\nRiwayat'},
+  {id:'a2',type:'action',lane:1,y:200,text:'Mengambil Data\nRiwayat dari Database'},
+  {id:'a3',type:'action',lane:1,y:290,text:'Menampilkan Daftar\nRiwayat Diagnosa'},
+  {id:'a4',type:'action',lane:0,y:380,text:'Memilih Salah Satu\nRiwayat'},
+  {id:'a5',type:'action',lane:1,y:465,text:'Menampilkan Detail\nHasil Diagnosa'},
+  {id:'e',type:'end',lane:1,y:535}
+],[
+  {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},
+  {from:'a3',to:'a4'},{from:'a4',to:'a5'},{from:'a5',to:'e'}
+]);
+
+// ===== 6. EDIT PROFIL =====
+drawDiagram('Edit Profil',['User','Sistem'],[
+  {id:'s',type:'start',lane:0,y:55},
+  {id:'a1',type:'action',lane:0,y:115,text:'Memilih Menu\nProfil'},
+  {id:'a2',type:'action',lane:1,y:200,text:'Menampilkan\nData Profil'},
+  {id:'a3',type:'action',lane:0,y:290,text:'Mengubah\nData Profil'},
+  {id:'a4',type:'action',lane:0,y:375,text:'Menekan Tombol\nSimpan'},
+  {id:'a5',type:'action',lane:1,y:460,text:'Validasi Data'},
+  {id:'d1',type:'decision',lane:1,y:545,text:'Valid?'},
+  {id:'a6',type:'action',lane:1,y:635,text:'Simpan Perubahan'},
+  {id:'a7',type:'action',lane:1,y:720,text:'Tampilkan Notifikasi\nBerhasil'},
+  {id:'e',type:'end',lane:1,y:790}
+],[
+  {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},
+  {from:'a3',to:'a4'},{from:'a4',to:'a5'},{from:'a5',to:'d1'},
+  {from:'d1',to:'a6',label:'Ya'},
+  {from:'d1',to:'a2',loop:'right',label:'Data Tidak\nValid'},
+  {from:'a6',to:'a7'},{from:'a7',to:'e'}
+]);
+
+// ===== CRUD Template =====
+function drawCRUD(entity,entityLower){
+  drawDiagram('Kelola Data '+entity,['Admin','Sistem'],[
+    {id:'s',type:'start',lane:0,y:55},
+    {id:'a1',type:'action',lane:0,y:115,text:'Memilih Menu\nData '+entity},
+    {id:'a2',type:'action',lane:1,y:200,text:'Menampilkan Daftar\nData '+entity},
+    {id:'a3',type:'action',lane:0,y:295,text:'Memilih Aksi\n(Tambah/Edit/Hapus)'},
+    {id:'a4',type:'action',lane:0,y:390,text:'Mengisi/Mengubah\nData '+entity},
+    {id:'a5',type:'action',lane:0,y:480,text:'Menekan Tombol\nSimpan/Hapus'},
+    {id:'a6',type:'action',lane:1,y:565,text:'Validasi dan\nSimpan/Hapus Data'},
+    {id:'d1',type:'decision',lane:1,y:655,text:'Berhasil?'},
+    {id:'a7',type:'action',lane:1,y:745,text:'Menampilkan Daftar\n'+entity+' Terbaru'},
+    {id:'e',type:'end',lane:1,y:815}
+  ],[
+    {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},
+    {from:'a3',to:'a4'},{from:'a4',to:'a5'},{from:'a5',to:'a6'},
+    {from:'a6',to:'d1'},
+    {from:'d1',to:'a7',label:'Ya'},
+    {from:'d1',to:'a4',loop:'right',label:'Gagal'},
+    {from:'a7',to:'e'}
+  ]);
+}
+
+// ===== 7-10. CRUD Diagrams =====
+drawCRUD('Penyakit');
+drawCRUD('Gejala');
+drawCRUD('Rule');
+drawCRUD('Users');
+
+// ===== 11. MELIHAT HISTORI DIAGNOSA (Admin) =====
+drawDiagram('Melihat Detail Histori Diagnosa',['Admin','Sistem'],[
+  {id:'s',type:'start',lane:0,y:55},
+  {id:'a1',type:'action',lane:0,y:115,text:'Memilih Menu\nHistori Diagnosa'},
+  {id:'a2',type:'action',lane:1,y:200,text:'Mengambil Data\nHistori dari Database'},
+  {id:'a3',type:'action',lane:1,y:290,text:'Menampilkan Daftar\nHistori Diagnosa'},
+  {id:'a4',type:'action',lane:0,y:380,text:'Memilih Salah Satu\nHistori'},
+  {id:'a5',type:'action',lane:1,y:465,text:'Menampilkan Detail\nHasil Diagnosa'},
+  {id:'e',type:'end',lane:1,y:535}
+],[
+  {from:'s',to:'a1'},{from:'a1',to:'a2'},{from:'a2',to:'a3'},
+  {from:'a3',to:'a4'},{from:'a4',to:'a5'},{from:'a5',to:'e'}
+]);
+</script>
+</body>
+</html>

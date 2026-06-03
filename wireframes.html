@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Wireframe - Sistem Pakar Buah Naga</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#fff;font-family:'Segoe UI',sans-serif;padding:30px;display:flex;flex-direction:column;align-items:center;gap:50px}
+h1{font-size:20px;color:#111}
+h2{font-size:15px;text-align:center;margin-bottom:8px;color:#333}
+.wrap{page-break-after:always}
+</style>
+</head>
+<body>
+<h1>Wireframe — Sistem Pakar Diagnosa Hama dan Penyakit Buah Naga</h1>
+<div id="out"></div>
+<script>
+const W=800,SB='#888',ST='#111',LG='#ccc';
+
+function mkSVG(w,h){
+  const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  s.setAttribute('viewBox',`0 0 ${w} ${h}`);s.setAttribute('width',w);
+  s.style.maxWidth='100%';s.style.border='1.5px solid #999';
+  return s;
+}
+function el(t,a,p){const e=document.createElementNS('http://www.w3.org/2000/svg',t);for(let k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function txt(s,x,y,t,sz=12,anchor='middle',fw='normal',fill='#333'){
+  t.split('\n').forEach((l,i)=>{
+    el('text',{x,y:y+i*16,'text-anchor':anchor,'font-family':'Segoe UI','font-size':sz,'font-weight':fw,fill,'dominant-baseline':'central'},s).textContent=l;
+  });
+}
+function rect(s,x,y,w,h,opts={}){
+  el('rect',{x,y,width:w,height:h,rx:opts.rx||4,fill:opts.fill||'none',stroke:opts.stroke||SB,'stroke-width':opts.sw||1,...(opts.dash?{'stroke-dasharray':'4,3'}:{})},s);
+}
+function placeholder(s,x,y,w,h,label){
+  rect(s,x,y,w,h,{fill:'#f0f0f0'});
+  el('line',{x1:x,y1:y,x2:x+w,y2:y+h,stroke:LG,'stroke-width':1},s);
+  el('line',{x1:x+w,y1:y,x2:x,y2:y+h,stroke:LG,'stroke-width':1},s);
+  if(label)txt(s,x+w/2,y+h/2,label,10);
+}
+function btn(s,x,y,w,h,label,dark){
+  rect(s,x,y,w,h,{fill:dark?'#333':'none',rx:6,stroke:'#333'});
+  txt(s,x+w/2,y+h/2,label,11,'middle',dark?'600':'normal',dark?'#fff':'#333');
+}
+function input(s,x,y,w,h,label){
+  rect(s,x,y,w,h,{stroke:'#aaa'});
+  txt(s,x+8,y+h/2,label,10,'start','normal','#999');
+}
+function navbar(s,w,logo,items){
+  rect(s,0,0,w,50,{fill:'#fafafa',stroke:'#ddd'});
+  txt(s,20,25,logo,14,'start','700','#111');
+  items.forEach((it,i)=>btn(s,w-60-(items.length-1-i)*80,12,70,26,it,i===items.length-1));
+}
+function sidebar(s,h,items,active){
+  rect(s,0,0,180,h,{fill:'#f5f5f5',stroke:'#ddd'});
+  txt(s,90,25,'Menu',13,'middle','700','#333');
+  el('line',{x1:0,y1:45,x2:180,y2:45,stroke:'#ddd'},s);
+  items.forEach((it,i)=>{
+    const y=55+i*36;
+    if(i===active)rect(s,8,y-2,164,30,{fill:'#e8e8e8',rx:6,stroke:'none'});
+    txt(s,24,y+12,it,11,'start','normal',i===active?'#111':'#666');
+  });
+}
+function table(s,x,y,w,cols,rows){
+  const cw=w/cols.length,rh=30;
+  rect(s,x,y,w,rh,{fill:'#eee',stroke:'#bbb'});
+  cols.forEach((c,i)=>txt(s,x+i*cw+cw/2,y+rh/2,c,10,'middle','600','#333'));
+  rows.forEach((r,ri)=>{
+    const ry=y+rh+(ri*rh);
+    rect(s,x,ry,w,rh,{stroke:'#ddd'});
+    r.forEach((c,ci)=>txt(s,x+ci*cw+cw/2,ry+rh/2,c,9));
+  });
+  return y+rh+rows.length*rh;
+}
+function card(s,x,y,w,h,title){
+  rect(s,x,y,w,h,{rx:8,stroke:'#ccc'});
+  if(title){rect(s,x,y,w,30,{rx:8,fill:'#f5f5f5',stroke:'#ccc'});txt(s,x+12,y+15,title,11,'start','600');}
+}
+
+function addWireframe(title,drawFn){
+  const wrap=document.createElement('div');wrap.className='wrap';
+  const h2=document.createElement('h2');h2.textContent='Wireframe — '+title;wrap.appendChild(h2);
+  const svg=drawFn();wrap.appendChild(svg);
+  document.getElementById('out').appendChild(wrap);
+}
+
+// ===== 1. Landing Page =====
+addWireframe('Landing Page (Halaman Awal)',()=>{
+  const s=mkSVG(W,600);
+  navbar(s,W,'Sistem Pakar Buah Naga',['Masuk','Daftar']);
+  // Hero
+  txt(s,200,110,'Diagnosa Penyakit',24,'middle','700','#111');
+  txt(s,200,140,'Buah Naga',20,'middle','700','#d63384');
+  txt(s,200,175,'Sistem pakar berbasis web dengan metode\nForward Chaining dan Certainty Factor',11,'middle');
+  btn(s,120,210,160,36,'Mulai Diagnosa',true);
+  // Hero image
+  placeholder(s,440,70,320,200,'[Gambar Buah Naga]');
+  // Stats bar
+  rect(s,0,300,W,50,{fill:'#eee'});
+  ['8 Penyakit','20 Gejala','24 Rules','FC+CF'].forEach((t,i)=>txt(s,100+i*180,325,t,12,'middle','600'));
+  // Features
+  txt(s,W/2,380,'Fitur Unggulan',16,'middle','700');
+  for(let i=0;i<3;i++){card(s,30+i*250,405,230,80);placeholder(s,40+i*250,415,40,40,'Icon');txt(s,155+i*250,430,['Forward Chaining','Certainty Factor','Terpercaya'][i],11,'middle','600');}
+  // CTA
+  rect(s,0,510,W,90,{fill:'#f0f0f0'});
+  txt(s,W/2,540,'Siap Mendiagnosa Tanaman Anda?',16,'middle','700');
+  btn(s,300,560,200,30,'Daftar Gratis',true);
+  return s;
+});
+
+// ===== 2. Login =====
+addWireframe('Halaman Login',()=>{
+  const s=mkSVG(400,400);
+  rect(s,50,30,300,340,{rx:12,stroke:'#ccc'});
+  txt(s,200,70,'Login',18,'middle','700');
+  txt(s,200,95,'Masuk ke akun Anda',10,'middle','normal','#888');
+  txt(s,80,130,'Email',10,'start','600');
+  input(s,70,140,260,35,'contoh@email.com');
+  txt(s,80,195,'Password',10,'start','600');
+  input(s,70,205,260,35,'••••••••');
+  btn(s,70,260,260,38,'Masuk',true);
+  txt(s,200,320,'Belum punya akun?',10);
+  txt(s,200,338,'Daftar di sini',10,'middle','600','#d63384');
+  return s;
+});
+
+// ===== 3. Register =====
+addWireframe('Halaman Register',()=>{
+  const s=mkSVG(400,480);
+  rect(s,50,30,300,420,{rx:12,stroke:'#ccc'});
+  txt(s,200,65,'Daftar Akun',18,'middle','700');
+  txt(s,80,105,'Nama Lengkap',10,'start','600');
+  input(s,70,115,260,35,'Nama lengkap');
+  txt(s,80,170,'Email',10,'start','600');
+  input(s,70,180,260,35,'contoh@email.com');
+  txt(s,80,235,'Password',10,'start','600');
+  input(s,70,245,260,35,'••••••••');
+  txt(s,80,300,'Konfirmasi Password',10,'start','600');
+  input(s,70,310,260,35,'••••••••');
+  btn(s,70,365,260,38,'Daftar',true);
+  txt(s,200,425,'Sudah punya akun? Masuk',10);
+  return s;
+});
+
+// ===== 4. Dashboard Admin =====
+addWireframe('Dashboard Admin',()=>{
+  const s=mkSVG(W,500);
+  sidebar(s,500,['Dashboard','Data Penyakit','Data Gejala','Data Rules','Data Users'],0);
+  // Header
+  txt(s,200,30,'Dashboard Admin',18,'start','700');
+  // Stats
+  const stats=['Penyakit: 8','Gejala: 20','Rules: 24','Users: 10','Diagnosa: 45'];
+  stats.forEach((st,i)=>{card(s,195+i*118,55,110,55);txt(s,250+i*118,82,st,10);});
+  // Cards
+  card(s,195,130,290,160,'Forward Chaining');
+  txt(s,340,175,'IF Gejala A AND Gejala B',9);
+  txt(s,340,195,'THEN Penyakit X',9);
+  card(s,500,130,290,160,'Certainty Factor');
+  txt(s,645,175,'CF = CF(User) × CF(Pakar)',9);
+  txt(s,645,195,'CF Kombinasi = CF1+CF2×(1-CF1)',9);
+  // Recent
+  card(s,195,310,595,180,'Diagnosa Terbaru');
+  table(s,205,345,575,['Tanggal','Penyakit','CF','User'],[
+    ['10/05/2026','Busuk Batang','85%','User A'],
+    ['09/05/2026','Antraknosa','72%','User B'],
+    ['08/05/2026','Layu Fusarium','68%','User C'],
+  ]);
+  return s;
+});
+
+// ===== 5. Dashboard User =====
+addWireframe('Dashboard User',()=>{
+  const s=mkSVG(W,400);
+  sidebar(s,400,['Dashboard','Diagnosa','Riwayat','Profil'],0);
+  txt(s,200,30,'Selamat Datang, User!',18,'start','700');
+  txt(s,200,50,'Sistem Pakar Buah Naga',11,'start','normal','#888');
+  // Quick actions
+  card(s,195,75,190,100,'🩺 Mulai Diagnosa');
+  txt(s,290,135,'Diagnosa hama &\npenyakit tanaman',9);
+  card(s,400,75,190,100,'📋 Riwayat');
+  txt(s,495,135,'Lihat riwayat\ndiagnosa Anda',9);
+  card(s,605,75,180,100,'👤 Profil');
+  txt(s,695,135,'Kelola data\nprofil Anda',9);
+  // Recent
+  card(s,195,195,590,190,'Riwayat Diagnosa Terakhir');
+  table(s,205,230,570,['Tanggal','Penyakit','CF (%)','Status'],[
+    ['10/05/2026','Busuk Batang','85%','Sangat Yakin'],
+    ['08/05/2026','Antraknosa','72%','Yakin'],
+    ['05/05/2026','Karat','55%','Cukup Yakin'],
+  ]);
+  return s;
+});
+
+// ===== 6. Halaman Diagnosa =====
+addWireframe('Halaman Diagnosa',()=>{
+  const s=mkSVG(W,480);
+  sidebar(s,480,['Dashboard','Diagnosa','Riwayat','Profil'],1);
+  txt(s,490,30,'🩺 Diagnosa Hama & Penyakit',16,'middle','700');
+  txt(s,490,50,'Jawab pertanyaan berdasarkan kondisi tanaman',10,'middle','normal','#888');
+  // Progress
+  rect(s,210,68,560,12,{fill:'#eee',rx:6});
+  rect(s,210,68,200,12,{fill:'#bbb',rx:6});
+  txt(s,750,74,'35%',9,'end');
+  // Question card
+  card(s,210,95,560,180);
+  rect(s,210,95,560,4,{fill:'#ccc',rx:4});
+  txt(s,230,120,'G03',10,'start','600','#d63384');
+  txt(s,750,120,'Pertanyaan 3',9,'end','normal','#888');
+  txt(s,490,175,'Apakah batang tanaman\nmembusuk dan lembek?',14,'middle','600');
+  btn(s,260,230,200,40,'✓ YA (CF=1)',true);
+  btn(s,500,230,200,40,'✗ TIDAK (CF=0)',false);
+  // Riwayat jawaban
+  card(s,210,295,560,170,'Riwayat Jawaban');
+  ['✓ G00: Ditemukan serangga/hewan? — YA','✗ G01: Batang membusuk? — TIDAK','✓ G02: Daun menguning? — YA'].forEach((t,i)=>{
+    rect(s,220,330+i*40,540,32,{fill:'#fafafa',rx:6,stroke:'#eee'});
+    txt(s,235,346+i*40,t,10,'start');
+  });
+  return s;
+});
+
+// ===== 7. Hasil Diagnosa =====
+addWireframe('Hasil Diagnosa',()=>{
+  const s=mkSVG(W,520);
+  sidebar(s,520,['Dashboard','Diagnosa','Riwayat','Profil'],1);
+  txt(s,490,28,'Hasil Diagnosa',16,'middle','700');
+  txt(s,490,46,'Forward Chaining + Certainty Factor',9,'middle','normal','#888');
+  // Result cards
+  card(s,210,65,380,80);rect(s,210,65,380,4,{fill:'#ccc'});
+  txt(s,230,90,'🦠 Penyakit',9,'start','600','#d63384');
+  txt(s,230,112,'Busuk Batang (Stem Rot)',14,'start','700');
+  txt(s,230,130,'P001',9,'start','normal','#888');
+  card(s,605,65,180,80);rect(s,605,65,180,4,{fill:'#ccc'});
+  txt(s,695,90,'Tingkat Kepercayaan',9);
+  txt(s,695,118,'85%',22,'middle','700','#d63384');
+  // Deskripsi
+  card(s,210,160,575,60,'Deskripsi');
+  txt(s,225,195,'Penyakit yang menyebabkan pembusukan pada batang tanaman buah naga...',9,'start');
+  // Solusi
+  card(s,210,235,575,80,'Solusi Penanganan');
+  ['1. Potong bagian yang terinfeksi','2. Aplikasikan fungisida','3. Perbaiki drainase'].forEach((t,i)=>
+    txt(s,225,265+i*18,t,9,'start')
+  );
+  // CF Detail
+  card(s,210,330,575,100,'Detail Perhitungan CF');
+  table(s,220,360,555,['Step','Gejala','CF User','CF Pakar','CF Hasil'],[
+    ['1','Batang membusuk','1.0','0.9','0.900'],
+    ['2','Batang lembek berair','1.0','0.8','0.980'],
+  ]);
+  // Actions
+  btn(s,400,448,170,34,'Lihat Riwayat',true);
+  btn(s,590,448,170,34,'Diagnosa Ulang',false);
+  return s;
+});
+
+// ===== 8. Riwayat Diagnosa =====
+addWireframe('Riwayat Diagnosa',()=>{
+  const s=mkSVG(W,380);
+  sidebar(s,380,['Dashboard','Diagnosa','Riwayat','Profil'],2);
+  txt(s,490,28,'📋 Riwayat Diagnosa',16,'middle','700');
+  table(s,200,55,585,['No','Tanggal','Penyakit','CF (%)','Interpretasi','Aksi'],[
+    ['1','10/05/2026','Busuk Batang','85%','Sangat Yakin','[Detail]'],
+    ['2','08/05/2026','Antraknosa','72%','Yakin','[Detail]'],
+    ['3','05/05/2026','Karat','55%','Cukup Yakin','[Detail]'],
+    ['4','01/05/2026','Layu Fusarium','68%','Yakin','[Detail]'],
+    ['5','28/04/2026','Mosaik Virus','45%','Sedikit Yakin','[Detail]'],
+  ]);
+  return s;
+});
+
+// ===== 9. Edit Profil =====
+addWireframe('Edit Profil',()=>{
+  const s=mkSVG(W,380);
+  sidebar(s,380,['Dashboard','Diagnosa','Riwayat','Profil'],3);
+  txt(s,490,28,'👤 Profil Saya',16,'middle','700');
+  card(s,240,55,480,300);
+  txt(s,270,85,'Nama Lengkap',10,'start','600');
+  input(s,260,95,440,32,'Nama User');
+  txt(s,270,145,'Email',10,'start','600');
+  input(s,260,155,440,32,'user@email.com');
+  txt(s,270,205,'Password Baru',10,'start','600');
+  input(s,260,215,440,32,'(kosongkan jika tidak diubah)');
+  txt(s,270,265,'Konfirmasi Password',10,'start','600');
+  input(s,260,275,440,32,'Konfirmasi password baru');
+  btn(s,500,320,200,30,'Simpan Perubahan',true);
+  return s;
+});
+
+// ===== CRUD Template =====
+function drawCRUD(title,menuIdx,entity,cols,rows){
+  addWireframe(title,()=>{
+    const s=mkSVG(W,420);
+    sidebar(s,420,['Dashboard','Data Penyakit','Data Gejala','Data Rules','Data Users'],menuIdx);
+    txt(s,350,28,title,16,'start','700');
+    btn(s,680,15,100,30,'+ Tambah',true);
+    // Search
+    input(s,200,55,300,30,'🔍 Cari '+entity+'...');
+    // Table
+    table(s,200,100,585,cols,rows);
+    // Pagination
+    txt(s,490,390,'« 1 2 3 »',10);
+    return s;
+  });
+}
+
+// ===== 10-13. CRUD Pages =====
+drawCRUD('Kelola Data Penyakit',1,'penyakit',
+  ['Kode','Nama','Tipe','Deskripsi','Solusi','Aksi'],
+  [['P001','Busuk Batang','Penyakit','Pembusukan...','3 solusi','✏️ 🗑️'],
+   ['P002','Layu Fusarium','Penyakit','Tanaman layu...','4 solusi','✏️ 🗑️'],
+   ['P003','Antraknosa','Penyakit','Bercak hitam...','3 solusi','✏️ 🗑️'],
+   ['H001','Kutu Putih','Hama','Serangan kutu...','3 solusi','✏️ 🗑️'],
+   ['H002','Tungau','Hama','Hama kecil...','2 solusi','✏️ 🗑️']]);
+
+drawCRUD('Kelola Data Gejala',2,'gejala',
+  ['Kode','Nama Gejala','CF Pakar','Deskripsi','Aksi'],
+  [['G01','Batang membusuk','0.90','Batang lunak...','✏️ 🗑️'],
+   ['G02','Batang lembek berair','0.80','Berair...','✏️ 🗑️'],
+   ['G03','Daun menguning','0.85','Warna kuning...','✏️ 🗑️'],
+   ['G04','Bercak coklat','0.75','Bercak pada...','✏️ 🗑️'],
+   ['G05','Tanaman layu','0.88','Layu mendadak...','✏️ 🗑️']]);
+
+drawCRUD('Kelola Data Rules',3,'rule',
+  ['ID','Penyakit','Gejala (IF)','Jumlah Gejala','Aksi'],
+  [['R01','Busuk Batang','G01, G02, G03','3','✏️ 🗑️'],
+   ['R02','Layu Fusarium','G04, G05, G06','3','✏️ 🗑️'],
+   ['R03','Antraknosa','G07, G08','2','✏️ 🗑️'],
+   ['R04','Kutu Putih','G10, G11, G12','3','✏️ 🗑️'],
+   ['R05','Tungau','G13, G14','2','✏️ 🗑️']]);
+
+drawCRUD('Kelola Data Users',4,'user',
+  ['ID','Nama','Email','Role','Tgl Daftar','Aksi'],
+  [['U01','Admin','admin@mail.com','Admin','01/01/2026','✏️ 🗑️'],
+   ['U02','User A','usera@mail.com','User','15/03/2026','✏️ 🗑️'],
+   ['U03','User B','userb@mail.com','User','20/04/2026','✏️ 🗑️'],
+   ['U04','User C','userc@mail.com','User','05/05/2026','✏️ 🗑️']]);
+</script>
+</body>
+</html>
