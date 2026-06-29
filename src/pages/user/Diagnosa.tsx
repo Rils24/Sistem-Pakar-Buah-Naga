@@ -798,7 +798,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
               className="h-14 text-base bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition-all hover:shadow-lg"
             >
               <CheckCircle className="w-5 h-5 mr-2" />
-              YA (CF=1)
+              YA 
             </Button>
             <Button
               onClick={() => handleJawaban('tidak')}
@@ -807,9 +807,23 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
               className="h-14 text-base border-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all"
             >
               <XCircle className="w-5 h-5 mr-2" />
-              TIDAK (CF=0)
+              TIDAK 
             </Button>
           </div>
+
+          {jawabanList.length > 0 && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="ghost"
+                onClick={resetDiagnosa}
+                disabled={loading}
+                className="text-gray-500 hover:text-pink-600 hover:bg-pink-50 transition-all text-sm font-medium gap-2 px-4 py-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Mulai Ulang Diagnosa
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
