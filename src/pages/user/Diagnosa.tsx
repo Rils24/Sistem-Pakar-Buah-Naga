@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { fetchRules, fetchGejala, fetchPenyakit, insertHasilDiagnosa } from '@/services/supabaseService';
+import { fetchRules, fetchGejala, fetchPenyakit, fetchPohonKeputusan, insertHasilDiagnosa } from '@/services/supabaseService';
 import { 
   Stethoscope, 
   CheckCircle, 
@@ -48,6 +48,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
   const [loading, setLoading] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [isFallback, setIsFallback] = useState<boolean>(false);
   
   // Data dari Supabase
   const [pohonKeputusan, setPohonKeputusan] = useState<any[]>([]);
@@ -55,121 +56,33 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
   const [rulesRef, setRulesRef] = useState<any[]>([]);
   const [isDataReady, setIsDataReady] = useState(false);
 
-  // Build pohon keputusan secara dinamis dari rules + gejala + penyakit
+  // Muat data pohon keputusan dan master data dari database Supabase
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [rulesData, gejalaData, penyakitData] = await Promise.all([
+        const [rulesData, gejalaData, penyakitData, pohonData] = await Promise.all([
           fetchRules(),
           fetchGejala(),
-          fetchPenyakit()
+          fetchPenyakit(),
+          fetchPohonKeputusan()
         ]);
         setPenyakitList(penyakitData);
         setRulesRef(rulesData);
 
-        // Helper: cari gejala by id
-        const getGejala = (id: string) => gejalaData.find((g: any) => g.id === id);
-        const getPenyakit = (id: string) => penyakitData.find((p: any) => p.id === id);
-
-        // Pisahkan rules ke hama vs penyakit
-        const hamaRules = rulesData.filter((r: any) => getPenyakit(r.penyakit_id)?.tipe === 'hama');
-        const penyakitRules = rulesData.filter((r: any) => getPenyakit(r.penyakit_id)?.tipe === 'penyakit');
-
-        const nodes: any[] = [];
-
-        // ROOT NODE: pertanyaan pembeda hama vs penyakit (G00)
-        const g00 = getGejala('g00');
-        nodes.push({
-          id: 'root',
-          kodeGejala: g00?.kode || 'G00',
-          namaGejala: g00?.nama || 'Apakah ditemukan serangga/hewan, jejak lendir/jaring, cairan lengket, atau kerusakan fisik?',
-          deskripsi: 'Gejala pembeda utama antara hama dan penyakit',
-          ya: 'hama_group',
-          tidak: 'penyakit_group',
-          cfPakar: g00?.cf_pakar ?? 1.0
-        });
-
-        // HAMA GROUP node
-        nodes.push({
-          id: 'hama_group',
-          kodeGejala: 'HAMA',
-          namaGejala: 'Tanda-tanda menunjukkan adanya HAMA. Mari kita identifikasi jenis hama yang menyerang.',
-          ya: hamaRules.length > 0 ? `rule_${hamaRules[0].id}_0` : 'hama_not_found',
-          tidak: '',
-          cfPakar: 1.0
-        });
-
-        // PENYAKIT GROUP node
-        nodes.push({
-          id: 'penyakit_group',
-          kodeGejala: 'PENYAKIT',
-          namaGejala: 'Tanda-tanda menunjukkan adanya PENYAKIT. Mari kita identifikasi jenis penyakit yang menyerang.',
-          ya: penyakitRules.length > 0 ? `rule_${penyakitRules[0].id}_0` : 'penyakit_not_found',
-          tidak: '',
-          cfPakar: 1.0
-        });
-
-        // Buat node untuk setiap rule (hama + penyakit)
-        const buildRuleNodes = (rules: any[], notFoundId: string) => {
-          rules.forEach((rule: any, ruleIdx: number) => {
-            const penyakit = getPenyakit(rule.penyakit_id);
-            const gejalaIds: string[] = rule.gejala_ids;
-            const nextRuleFirstNode = ruleIdx < rules.length - 1
-              ? `rule_${rules[ruleIdx + 1].id}_0`
-              : notFoundId;
-
-            // Confirmed leaf node untuk rule ini
-            nodes.push({
-              id: `rule_${rule.id}_confirmed`,
-              kodeGejala: penyakit?.kode || rule.penyakit_id,
-              namaGejala: `Hasil: ${penyakit?.nama || 'Unknown'} terdeteksi!`,
-              hasil: rule.penyakit_id,
-              cfPakar: 0.95
-            });
-
-            // Buat chain node untuk setiap gejala dalam rule
-            gejalaIds.forEach((gId: string, gIdx: number) => {
-              const gejala = getGejala(gId);
-              const nodeId = `rule_${rule.id}_${gIdx}`;
-              
-              // YA → ke gejala berikutnya dalam rule, atau confirmed
-              const yaTarget = gIdx < gejalaIds.length - 1
-                ? `rule_${rule.id}_${gIdx + 1}`
-                : `rule_${rule.id}_confirmed`;
-
-              // TIDAK → ke rule berikutnya
-              const tidakTarget = nextRuleFirstNode;
-
-              nodes.push({
-                id: nodeId,
-                gejalaId: gId,
-                kodeGejala: gejala?.kode || gId.toUpperCase(),
-                namaGejala: gejala?.nama ? `Apakah ${gejala.nama.charAt(0).toLowerCase()}${gejala.nama.slice(1)}?` : gId,
-                ya: yaTarget,
-                tidak: tidakTarget,
-                cfPakar: gejala?.cf_pakar ?? 0.8
-              });
-            });
-          });
-        };
-
-        buildRuleNodes(hamaRules, 'hama_not_found');
-        buildRuleNodes(penyakitRules, 'penyakit_not_found');
-
-        // Not found nodes
-        nodes.push({
-          id: 'hama_not_found',
-          kodeGejala: 'HAMA?',
-          namaGejala: 'Hama tidak dapat diidentifikasi.',
-          hasil: 'hama_not_found',
-          cfPakar: 0
-        });
-        nodes.push({
-          id: 'penyakit_not_found',
-          kodeGejala: 'PENYAKIT?',
-          namaGejala: 'Penyakit tidak dapat diidentifikasi.',
-          hasil: 'penyakit_not_found',
-          cfPakar: 0
+        // Map data dari pohon_keputusan di database ke format frontend secara sinkron dengan master gejala
+        const nodes = pohonData.map((node: any) => {
+          const matchedGejala = gejalaData.find((g: any) => g.id === node.gejala_id);
+          return {
+            id: node.id,
+            gejalaId: node.gejala_id,
+            kodeGejala: matchedGejala ? matchedGejala.kode : node.kode_gejala,
+            namaGejala: matchedGejala ? matchedGejala.nama : node.nama_gejala,
+            deskripsi: matchedGejala?.deskripsi || node.deskripsi || '',
+            ya: node.ya,
+            tidak: node.tidak,
+            hasil: node.hasil,
+            cfPakar: matchedGejala ? matchedGejala.cf_pakar : (node.cf_pakar || 0.8)
+          };
         });
 
         setPohonKeputusan(nodes);
@@ -191,7 +104,30 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     return penyakitList.find(p => p.id === id);
   }, [penyakitList]);
 
+  const formatPertanyaan = (nama: string | undefined | null) => {
+    if (!nama) return '';
+    let text = nama.trim();
+    if (/^apakah/i.test(text)) {
+      return text;
+    }
+    if (text.endsWith('.')) {
+      text = text.slice(0, -1);
+    }
+    text = text.charAt(0).toLowerCase() + text.slice(1);
+    return `Apakah ${text}?`;
+  };
+
   const currentNode = getNodeById(currentNodeId);
+
+  // Auto-forward untuk node transisi (group nodes yang bukan pertanyaan)
+  // Node seperti hama_group/penyakit_group hanya punya jalur 'ya' tanpa 'tidak'
+  useEffect(() => {
+    if (!currentNode || !isDataReady) return;
+    // Jika node punya 'ya' tapi TIDAK punya 'tidak', dan belum ada hasil → auto forward
+    if (currentNode.ya && !currentNode.tidak && !currentNode.hasil) {
+      setCurrentNodeId(currentNode.ya);
+    }
+  }, [currentNodeId, currentNode, isDataReady]);
 
   // Forward Chaining: proses jawaban dan pindah ke node berikutnya
   const handleJawaban = useCallback((jawaban: 'ya' | 'tidak') => {
@@ -303,13 +239,25 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     allResults.sort((a, b) => b.cf_value - a.cf_value);
     setAllCFResults(allResults);
 
+    // Cek apakah output dari tree adalah "not found"
+    const isTreeNotFound = ['not_found', 'hama_not_found', 'penyakit_not_found'].includes(confirmedPenyakitId);
+    let targetPenyakitId = confirmedPenyakitId;
+
+    if (isTreeNotFound && allResults.length > 0) {
+      // Jika tree tidak menemukan penyakit tapi ada beberapa gejala "YA" yang cocok dengan penyakit/hama tertentu
+      const primaryResult = allResults[0];
+      targetPenyakitId = primaryResult.penyakit_id;
+      setIsFallback(true);
+      setHasil(primaryResult.penyakit_id);
+    }
+
     // Primary = penyakit yang terkonfirmasi dari tree, atau tertinggi
-    const primary = allResults.find(r => r.penyakit_id === confirmedPenyakitId) || allResults[0];
+    const primary = allResults.find(r => r.penyakit_id === targetPenyakitId) || allResults[0];
     setCfTotal(primary?.cf_value || 0);
     setDetailPerhitungan(primary?.detail_perhitungan || []);
 
     // ── Simpan ke Supabase ──────────────────────────────────────────
-    const penyakit = getPenyakitById(confirmedPenyakitId);
+    const penyakit = getPenyakitById(targetPenyakitId);
     if (penyakit) {
       const hasilDiagnosa = {
         id: `d${Date.now()}`,
@@ -327,7 +275,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
           cf_value: r.cf_value,
           persentase: r.persentase
         })),
-        penyakit_terpilih: confirmedPenyakitId,
+        penyakit_terpilih: targetPenyakitId,
         nama_penyakit_terpilih: penyakit.nama,
         cf_tertinggi: primary?.cf_value || 0,
         solusi: penyakit.solusi
@@ -351,6 +299,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     setCfTotal(0);
     setDetailPerhitungan([]);
     setAllCFResults([]);
+    setIsFallback(false);
   };
 
   const getCFInterpretasi = (cf: number): string => {
@@ -439,6 +388,18 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
 
     return (
       <div className="max-w-4xl mx-auto space-y-8">
+        {isFallback && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-start gap-4 text-amber-800 shadow-sm">
+            <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h5 className="font-semibold text-amber-900 mb-1">Diagnosis Alternatif (Certainty Factor)</h5>
+              <p className="leading-relaxed text-sm">
+                Sistem tidak menemukan kecocokan 100% pada alur pohon keputusan (Forward Chaining). Namun, berdasarkan gejala-gejala yang Anda jawab <span className="font-semibold text-emerald-700">"YA"</span>, penyakit/hama berikut memiliki persentase kecocokan tertinggi.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header Hasil */}
         <div className="text-center space-y-3">
           <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto shadow-lg ${
@@ -818,7 +779,9 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
           {/* Pertanyaan */}
           <div className="text-center py-8">
             <p className="text-lg font-medium text-gray-900 leading-relaxed">
-              {currentNode?.namaGejala}
+              {currentNode?.gejalaId
+                ? formatPertanyaan(currentNode.namaGejala)
+                : currentNode?.namaGejala}
             </p>
             {currentNode?.deskripsi && (
               <p className="text-sm text-gray-400 mt-3 max-w-lg mx-auto">

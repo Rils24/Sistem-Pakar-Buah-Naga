@@ -9,6 +9,7 @@ import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { KelolaPenyakit } from '@/pages/admin/KelolaPenyakit';
 import { KelolaGejala } from '@/pages/admin/KelolaGejala';
 import { KelolaRules } from '@/pages/admin/KelolaRules';
+import { KelolaPohonKeputusan } from '@/pages/admin/KelolaPohonKeputusan';
 import { KelolaUsers } from '@/pages/admin/KelolaUsers';
 import { LaporanDiagnosa } from '@/pages/admin/LaporanDiagnosa';
 import { UserDashboard } from '@/pages/user/UserDashboard';
@@ -139,6 +140,16 @@ function App() {
             <ProtectedRoute user={currentUser} allowedRole="admin">
               <Layout user={currentUser} onLogout={handleLogout}>
                 <KelolaRules />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/pohon"
+          element={
+            <ProtectedRoute user={currentUser} allowedRole="admin">
+              <Layout user={currentUser} onLogout={handleLogout}>
+                <KelolaPohonKeputusan />
               </Layout>
             </ProtectedRoute>
           }

@@ -331,3 +331,32 @@ export const fetchPohonNodeById = async (id: string): Promise<any | null> => {
   if (error) return null;
   return data;
 };
+
+export const insertPohonNode = async (node: any): Promise<any> => {
+  const { data, error } = await supabase
+    .from('pohon_keputusan')
+    .insert(node)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const updatePohonNode = async (id: string, updates: Partial<any>): Promise<any> => {
+  const { data, error } = await supabase
+    .from('pohon_keputusan')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const deletePohonNode = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('pohon_keputusan')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+};

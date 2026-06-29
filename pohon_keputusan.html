@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pohon Keputusan - Sistem Pakar Buah Naga</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+    
+    /* Layout */
+    .sidebar {
+      width: 350px;
+      background: #ffffff;
+      border-right: 1px solid #e2e8f0;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    
+    .canvas-container {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      background-color: #fafafa;
+      background-image: 
+        radial-gradient(#e5e7eb 1.5px, transparent 1.5px), 
+        radial-gradient(#e5e7eb 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+      background-position: 0 0, 12px 12px;
+      overflow: hidden;
+      cursor: grab;
+    }
+    
+    .canvas-container:active {
+      cursor: grabbing;
+    }
+    
+    /* Header */
+    .header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      color: #64748b;
+    }
+    
+    /* Controls */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .control-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+    }
+    
+    .tabs {
+      display: flex;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 8px;
+    }
+    
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn.active {
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .search-box {
+      position: relative;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
+      padding-right: 36px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    
+    .search-input:focus {
+      border-color: #0f172a;
+    }
+    
+    .search-clear {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      display: none;
+    }
+    
+    /* Info Panel */
+    .info-panel {
+      flex: 1;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      background: #f8fafc;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .info-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    
+    .info-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .badge-gejala {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+    
+    .badge-hama {
+      background: #fff7ed;
+      color: #c2410c;
+      border: 1px solid #fed7aa;
+    }
+    
+    .badge-penyakit {
+      background: #fff1f2;
+      color: #be123c;
+      border: 1px solid #fecdd3;
+    }
+    
+    .badge-group {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    
+    .info-desc {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #334155;
+      word-wrap: break-word;
+    }
+    
+    .info-empty {
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+      margin: auto 0;
+      font-style: italic;
+    }
+    
+    /* Action Buttons */
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+    
+    .btn-primary {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+    
+    .btn-primary:hover {
+      background: #1e293b;
+      border-color: #1e293b;
+    }
+    
+    /* Floating Buttons */
+    .floating-controls {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .float-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      color: #475569;
+      transition: all 0.2s;
+    }
+    
+    .float-btn:hover {
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    
+    /* SVG Styling */
+    svg {
+      transform-origin: 0 0;
+      user-select: none;
+    }
+    
+    .node-circle {
+      fill: #ffffff;
+      stroke: #111111;
+      stroke-width: 1.5;
+      cursor: pointer;
+      transition: stroke-width 0.2s, stroke 0.2s, fill 0.2s;
+    }
+    
+    .node-leaf {
+      fill: #ffffff;
+      stroke: #111111;
+      stroke-width: 2.2;
+      cursor: pointer;
+      transition: stroke-width 0.2s, stroke 0.2s, fill 0.2s;
+    }
+    
+    .node-circle:hover, .node-leaf:hover {
+      stroke-width: 2.8;
+      stroke: #2563eb;
+    }
+    
+    .node-text {
+      font-family: 'Segoe UI', sans-serif;
+      font-weight: 700;
+      fill: #111111;
+      pointer-events: none;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+    
+    .edge-line {
+      fill: none;
+      stroke: #111111;
+      stroke-width: 1.2;
+      transition: stroke 0.2s, stroke-width 0.2s;
+    }
+    
+    .edge-line-ya {
+      stroke-dasharray: none;
+    }
+    
+    .edge-line-tidak {
+      stroke-dasharray: 4,4;
+    }
+    
+    .edge-label {
+      font-size: 9px;
+      font-family: 'Segoe UI', sans-serif;
+      font-weight: 700;
+      fill: #111111;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+    
+    /* Highlight States */
+    .node-circle.highlighted, .node-leaf.highlighted {
+      stroke: #ef4444 !important;
+      stroke-width: 3 !important;
+      fill: #fee2e2 !important;
+    }
+    
+    .edge-line.highlighted {
+      stroke: #ef4444 !important;
+      stroke-width: 2.5 !important;
+    }
+    
+    .edge-label.highlighted {
+      fill: #ef4444 !important;
+    }
+    
+    .node-circle.muted, .node-leaf.muted {
+      opacity: 0.15;
+    }
+    
+    .edge-line.muted {
+      opacity: 0.08;
+    }
+    
+    .edge-label.muted {
+      opacity: 0.08;
+    }
+    
+    /* Legend in sidebar */
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+      color: #64748b;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 12px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .legend-shape {
+      width: 14px;
+      height: 14px;
+      border: 1px solid #111;
+      background: #fff;
+    }
+    
+    .legend-shape.circle {
+      border-radius: 50%;
+    }
+    
+    .legend-shape.double {
+      border-width: 2.2px;
+    }
+    
+    .legend-line {
+      width: 16px;
+      height: 2px;
+      background: #111;
+    }
+    
+    .legend-line.dashed {
+      background: transparent;
+      border-top: 2px dashed #111;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="header">
+      <h1>Pohon Keputusan</h1>
+      <p>Sistem Pakar Diagnosa Hama & Penyakit Buah Naga</p>
+    </div>
+    
+    <!-- Tab Selector -->
+    <div class="control-group">
+      <span class="control-label">Pilih Kelompok</span>
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-hama" onclick="switchTree('hama')">Hama</button>
+        <button class="tab-btn" id="tab-penyakit" onclick="switchTree('penyakit')">Penyakit</button>
+        <button class="tab-btn" id="tab-gabungan" onclick="switchTree('gabungan')">Gabungan</button>
+      </div>
+    </div>
+    
+    <!-- Search Box -->
+    <div class="control-group">
+      <span class="control-label">Cari Gejala / Diagnosa</span>
+      <div class="search-box">
+        <input type="text" class="search-input" id="searchInput" placeholder="Contoh: G01, H01, Kutu..." oninput="handleSearch()">
+        <button class="search-clear" id="searchClearBtn" onclick="clearSearch()">&times;</button>
+      </div>
+    </div>
+    
+    <!-- Info Panel -->
+    <div class="control-group" style="flex: 1; min-height: 0;">
+      <span class="control-label">Detail Item</span>
+      <div class="info-panel" id="infoPanel">
+        <div class="info-empty">Arahkan kursor atau klik node pada pohon untuk melihat detail di sini.</div>
+      </div>
+    </div>
+    
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-shape circle"></div>
+        <span>Gejala / Pertanyaan (G00 - G76)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-shape double"></div>
+        <span>Hasil Akhir Diagnosa (H01-H07 / P01-P06)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line"></div>
+        <span>Jalur Jawaban: <strong>YA</strong></span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line dashed"></div>
+        <span>Jalur Jawaban: <strong>TIDAK</strong></span>
+      </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn" onclick="resetView()">Reset View</button>
+      <button class="btn btn-primary" onclick="downloadSVG()">Unduh SVG</button>
+    </div>
+  </div>
+  
+  <!-- Canvas Area -->
+  <div class="canvas-container" id="canvasContainer">
+    <svg id="treeSvg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#111111" />
+        </marker>
+        <marker id="arrow-highlighted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
+        </marker>
+      </defs>
+      <g id="gridGroup"></g>
+      <g id="edgesGroup"></g>
+      <g id="nodesGroup"></g>
+    </svg>
+    
+    <!-- Floating controls -->
+    <div class="floating-controls">
+      <button class="float-btn" onclick="zoom(1.2)">+</button>
+      <button class="float-btn" onclick="zoom(0.8)">-</button>
+      <button class="float-btn" onclick="resetZoom()">1:1</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== DATABASE RAW NODES (1-TO-1 WITH seed_pohon_keputusan.sql) =====
+    const rawNodes = [
+      // ROOT NODE
+      { id: 'root', gejala_id: 'g00', kode_gejala: 'G00', nama_gejala: 'Apakah Anda melihat langsung adanya serangga/hewan, cairan lengket, lendir/jaring, atau bekas gigitan dan lubang pada tanaman?', ya: 'hama_group', tidak: 'penyakit_group', hasil: '', cf_pakar: 1.0 },
+      
+      // GROUPS
+      { id: 'hama_group', gejala_id: 'hama', kode_gejala: 'HAMA', nama_gejala: 'Terdeteksi adanya indikasi HAMA. Mari kita cari tahu jenis hama apa yang menyerang tanaman Anda.', ya: 'h01_check', tidak: '', hasil: '', cf_pakar: 1.0 },
+      { id: 'penyakit_group', gejala_id: 'penyakit', kode_gejala: 'PENYAKIT', nama_gejala: 'Terdeteksi adanya indikasi PENYAKIT (Jamur/Bakteri/Virus). Mari kita cari tahu penyakit apa yang menyerang.', ya: 'p01_check', tidak: '', hasil: '', cf_pakar: 1.0 },
+
+      // H01: KUTU PUTIH
+      { id: 'h01_check', gejala_id: 'g01', kode_gejala: 'G01', nama_gejala: 'Apakah terlihat lapisan putih seperti kapas atau sarang laba-laba pada batang dan buah?', ya: 'h01_g02', tidak: 'h02_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h01_g02', gejala_id: 'g02', kode_gejala: 'G02', nama_gejala: 'Apakah Anda melihat kumpulan kutu atau serangga kecil di sekitar lapisan putih tersebut?', ya: 'h01_g03', tidak: 'h01_g05', hasil: '', cf_pakar: 0.9 },
+      { id: 'h01_g03', gejala_id: 'g03', kode_gejala: 'G03', nama_gejala: 'Apakah lapisan putih tersebut terasa lengket ketika disentuh?', ya: 'h01_confirmed', tidak: 'h01_g04', hasil: '', cf_pakar: 0.85 },
+      { id: 'h01_g04', gejala_id: 'g04', kode_gejala: 'G04', nama_gejala: 'Apakah bagian batang atau buah terlihat kusam dan kotor?', ya: 'h01_confirmed', tidak: 'h02_check', hasil: '', cf_pakar: 0.7 },
+      { id: 'h01_g05', gejala_id: 'g05', kode_gejala: 'G05', nama_gejala: 'Apakah ada jamur berwarna hitam (seperti jelaga) di bagian yang terserang?', ya: 'h01_confirmed', tidak: 'h01_g06', hasil: '', cf_pakar: 0.8 },
+      { id: 'h01_g06', gejala_id: 'g06', kode_gejala: 'G06', nama_gejala: 'Apakah banyak semut berkeliaran di sekitar lapisan putih tersebut?', ya: 'h01_confirmed', tidak: 'h02_check', hasil: '', cf_pakar: 0.75 },
+      { id: 'h01_confirmed', gejala_id: 'h01', kode_gejala: 'H01', nama_gejala: 'Hasil: Kutu Putih terdeteksi!', ya: '', tidak: '', hasil: 'h01', cf_pakar: 0.95 },
+
+      // H02: APHIDS
+      { id: 'h02_check', gejala_id: 'g07', kode_gejala: 'G07', nama_gejala: 'Apakah ada gerombolan kutu kecil berwarna hijau atau hitam di batang, kelopak bunga, atau sisik buah?', ya: 'h02_g08', tidak: 'h03_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h02_g08', gejala_id: 'g08', kode_gejala: 'G08', nama_gejala: 'Apakah permukaan batang, bunga, atau buah terasa lengket seperti terkena madu?', ya: 'h02_confirmed', tidak: 'h02_g09', hasil: '', cf_pakar: 0.85 },
+      { id: 'h02_g09', gejala_id: 'g09', kode_gejala: 'G09', nama_gejala: 'Apakah jamur hitam tumbuh pada permukaan yang lengket tersebut?', ya: 'h02_confirmed', tidak: 'h02_g10', hasil: '', cf_pakar: 0.8 },
+      { id: 'h02_g10', gejala_id: 'g10', kode_gejala: 'G10', nama_gejala: 'Apakah bunga dan bakal buah menjadi layu lalu berguguran?', ya: 'h02_confirmed', tidak: 'h02_g11', hasil: '', cf_pakar: 0.75 },
+      { id: 'h02_g11', gejala_id: 'g11', kode_gejala: 'G11', nama_gejala: 'Apakah tunas muda dan bunga terlihat berkerut serta kerdil?', ya: 'h02_confirmed', tidak: 'h03_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'h02_confirmed', gejala_id: 'h02', kode_gejala: 'H02', nama_gejala: 'Hasil: Aphids (Kutu Daun) terdeteksi!', ya: '', tidak: '', hasil: 'h02', cf_pakar: 0.95 },
+
+      // H03: KUTU SISIK
+      { id: 'h03_check', gejala_id: 'g12', kode_gejala: 'G12', nama_gejala: 'Apakah terlihat kumpulan hama menempel rapat di bagian batang yang teduh (terlindung dari matahari)?', ya: 'h03_g13', tidak: 'h04_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h03_g13', gejala_id: 'g13', kode_gejala: 'G13', nama_gejala: 'Jika kumpulan hama itu disingkirkan, apakah ada bercak kecil berwarna kuning di kulit batang?', ya: 'h03_confirmed', tidak: 'h03_g14', hasil: '', cf_pakar: 0.85 },
+      { id: 'h03_g14', gejala_id: 'g14', kode_gejala: 'G14', nama_gejala: 'Apakah warna batang yang semula hijau berubah menjadi kuning pucat?', ya: 'h03_confirmed', tidak: 'h03_g15', hasil: '', cf_pakar: 0.8 },
+      { id: 'h03_g15', gejala_id: 'g15', kode_gejala: 'G15', nama_gejala: 'Apakah batang atau cabang menjadi sangat lunak, membusuk, dan berwarna coklat?', ya: 'h03_confirmed', tidak: 'h04_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'h03_confirmed', gejala_id: 'h03', kode_gejala: 'H03', nama_gejala: 'Hasil: Kutu Sisik terdeteksi!', ya: '', tidak: '', hasil: 'h03', cf_pakar: 0.95 },
+
+      // H04: LALAT BUAH
+      { id: 'h04_check', gejala_id: 'g16', kode_gejala: 'G16', nama_gejala: 'Apakah ada titik/lubang kecil bekas tusukan di kulit buah?', ya: 'h04_g17', tidak: 'h05_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h04_g17', gejala_id: 'g17', kode_gejala: 'G17', nama_gejala: 'Apakah ada bercak basah yang semakin hari semakin melebar di kulit buah?', ya: 'h04_confirmed', tidak: 'h04_g18', hasil: '', cf_pakar: 0.85 },
+      { id: 'h04_g18', gejala_id: 'g18', kode_gejala: 'G18', nama_gejala: 'Ketika buah dibelah, apakah ada ulat atau belatung putih di dalamnya?', ya: 'h04_confirmed', tidak: 'h04_g19', hasil: '', cf_pakar: 0.95 },
+      { id: 'h04_g19', gejala_id: 'g19', kode_gejala: 'G19', nama_gejala: 'Apakah buah menjadi busuk kemudian jatuh/gugur dari pohon?', ya: 'h04_confirmed', tidak: 'h04_g20', hasil: '', cf_pakar: 0.8 },
+      { id: 'h04_g20', gejala_id: 'g20', kode_gejala: 'G20', nama_gejala: 'Apakah bagian dalam/daging buah terlihat keropos dan berlubang?', ya: 'h04_confirmed', tidak: 'h05_check', hasil: '', cf_pakar: 0.75 },
+      { id: 'h04_confirmed', gejala_id: 'h04', kode_gejala: 'H04', nama_gejala: 'Hasil: Lalat Buah terdeteksi!', ya: '', tidak: '', hasil: 'h04', cf_pakar: 0.95 },
+
+      // H05: BEKICOT
+      { id: 'h05_check', gejala_id: 'g21', kode_gejala: 'G21', nama_gejala: 'Apakah ada bekas gigitan bergerigi di bagian pinggir atau tengah batang tanaman?', ya: 'h05_g22', tidak: 'h06_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h05_g22', gejala_id: 'g22', kode_gejala: 'G22', nama_gejala: 'Apakah Anda menemukan bekicot menempel atau berada di sekitar tanaman?', ya: 'h05_confirmed', tidak: 'h05_g23', hasil: '', cf_pakar: 0.95 },
+      { id: 'h05_g23', gejala_id: 'g23', kode_gejala: 'G23', nama_gejala: 'Apakah terlihat kotoran bekicot berwarna hitam di dekat pohon?', ya: 'h05_confirmed', tidak: 'h05_g24', hasil: '', cf_pakar: 0.85 },
+      { id: 'h05_g24', gejala_id: 'g24', kode_gejala: 'G24', nama_gejala: 'Apakah ada bekas/jejak lendir yang mengkilap keperakan di sekitar batang?', ya: 'h05_confirmed', tidak: 'h05_g25', hasil: '', cf_pakar: 0.8 },
+      { id: 'h05_g25', gejala_id: 'g25', kode_gejala: 'G25', nama_gejala: 'Apakah batang sampai berlubang besar atau rombeng karena habis dimakan?', ya: 'h05_confirmed', tidak: 'h05_g26', hasil: '', cf_pakar: 0.85 },
+      { id: 'h05_g26', gejala_id: 'g26', kode_gejala: 'G26', nama_gejala: 'Apakah tunas baru yang tumbuh menjadi rusak atau bentuknya cacat?', ya: 'h05_confirmed', tidak: 'h06_check', hasil: '', cf_pakar: 0.75 },
+      { id: 'h05_confirmed', gejala_id: 'h05', kode_gejala: 'H05', nama_gejala: 'Hasil: Bekicot terdeteksi!', ya: '', tidak: '', hasil: 'h05', cf_pakar: 0.95 },
+
+      // H06: BELALANG
+      { id: 'h06_check', gejala_id: 'g27', kode_gejala: 'G27', nama_gejala: 'Apakah batang muda atau tunas terlihat sobek dan berlubang?', ya: 'h06_g28', tidak: 'h07_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'h06_g28', gejala_id: 'g28', kode_gejala: 'G28', nama_gejala: 'Apakah ada bekas luka berwarna coklat di permukaan batang?', ya: 'h06_confirmed', tidak: 'h06_g29', hasil: '', cf_pakar: 0.8 },
+      { id: 'h06_g29', gejala_id: 'g29', kode_gejala: 'G29', nama_gejala: 'Apakah bekas gigitan/luka tersebut terlihat mengering?', ya: 'h06_confirmed', tidak: 'h06_g30', hasil: '', cf_pakar: 0.75 },
+      { id: 'h06_g30', gejala_id: 'g30', kode_gejala: 'G30', nama_gejala: 'Apakah kulit luar batang terkelupas atau rusak dengan pola tidak teratur?', ya: 'h06_confirmed', tidak: 'h06_g31', hasil: '', cf_pakar: 0.7 },
+      { id: 'h06_g31', gejala_id: 'g31', kode_gejala: 'G31', nama_gejala: 'Apakah batang muda sampai patah atau layu dan mati?', ya: 'h06_confirmed', tidak: 'h07_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'h06_confirmed', gejala_id: 'h06', kode_gejala: 'H06', nama_gejala: 'Hasil: Belalang terdeteksi!', ya: '', tidak: '', hasil: 'h06', cf_pakar: 0.95 },
+
+      // H07: TUNGAU
+      { id: 'h07_check', gejala_id: 'g32', kode_gejala: 'G32', nama_gejala: 'Apakah warna hijau batang tampak memudar dan kusam?', ya: 'h07_g33', tidak: 'hama_not_found', hasil: '', cf_pakar: 0.75 },
+      { id: 'h07_g33', gejala_id: 'g33', kode_gejala: 'G33', nama_gejala: 'Apakah muncul bintik-bintik kecil berwarna kuning atau putih di permukaan batang?', ya: 'h07_confirmed', tidak: 'h07_g34', hasil: '', cf_pakar: 0.8 },
+      { id: 'h07_g34', gejala_id: 'g34', kode_gejala: 'G34', nama_gejala: 'Apakah bagian batang mengering dan berubah warna menjadi kecoklatan?', ya: 'h07_confirmed', tidak: 'h07_g35', hasil: '', cf_pakar: 0.8 },
+      { id: 'h07_g35', gejala_id: 'g35', kode_gejala: 'G35', nama_gejala: 'Apakah ada jaring-jaring halus seperti sarang laba-laba di sela-sela batang?', ya: 'h07_confirmed', tidak: 'h07_g36', hasil: '', cf_pakar: 0.85 },
+      { id: 'h07_g36', gejala_id: 'g36', kode_gejala: 'G36', nama_gejala: 'Apakah pertumbuhan tunas muda terganggu atau bentuknya tidak normal?', ya: 'h07_confirmed', tidak: 'h07_g37', hasil: '', cf_pakar: 0.8 },
+      { id: 'h07_g37', gejala_id: 'g37', kode_gejala: 'G37', nama_gejala: 'Apakah batang akhirnya mengering total lalu mati?', ya: 'h07_confirmed', tidak: 'hama_not_found', hasil: '', cf_pakar: 0.85 },
+      { id: 'h07_confirmed', gejala_id: 'h07', kode_gejala: 'H07', nama_gejala: 'Hasil: Tungau terdeteksi!', ya: '', tidak: '', hasil: 'h07', cf_pakar: 0.95 },
+      { id: 'hama_not_found', gejala_id: 'hama_not_found', kode_gejala: 'HAMA?', nama_gejala: 'Hama tidak dapat diidentifikasi dari gejala yang diberikan. Coba konsultasikan dengan ahli.', ya: '', tidak: '', hasil: 'hama_not_found', cf_pakar: 0 },
+
+      // P01: KANKER BATANG DAN BUAH
+      { id: 'p01_check', gejala_id: 'g38', kode_gejala: 'G38', nama_gejala: 'Apakah muncul bintik putih kecil yang agak cekung (seperti bekas tusukan jarum) pada tunas, cabang muda, atau buah?', ya: 'p01_g39', tidak: 'p02_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'p01_g39', gejala_id: 'g39', kode_gejala: 'G39', nama_gejala: 'Apakah bintik putih tersebut berubah warna menjadi coklat kemerahan?', ya: 'p01_g40', tidak: 'p01_g42', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_g40', gejala_id: 'g40', kode_gejala: 'G40', nama_gejala: 'Apakah bintik-bintik itu melebar dan menyatu menjadi bercak besar berwarna coklat kehitaman dengan tekstur kasar?', ya: 'p01_confirmed', tidak: 'p01_g41', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_g41', gejala_id: 'g41', kode_gejala: 'G41', nama_gejala: 'Apakah tunas muda menjadi layu, mengering, lalu mati?', ya: 'p01_confirmed', tidak: 'p02_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p01_g42', gejala_id: 'g42', kode_gejala: 'G42', nama_gejala: 'Apakah muncul bercak sekitar 1-2 cm yang berlubang hitam di tengahnya pada batang yang tua?', ya: 'p01_confirmed', tidak: 'p01_g43', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_g43', gejala_id: 'g43', kode_gejala: 'G43', nama_gejala: 'Apakah kulit buah menjadi kasar akibat bercak-bercak yang menyatu?', ya: 'p01_confirmed', tidak: 'p01_g44', hasil: '', cf_pakar: 0.8 },
+      { id: 'p01_g44', gejala_id: 'g44', kode_gejala: 'G44', nama_gejala: 'Apakah batang membusuk dan hancur sampai hanya tersisa serat kayu bagian dalamnya saja?', ya: 'p01_confirmed', tidak: 'p02_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_confirmed', gejala_id: 'p01', kode_gejala: 'P01', nama_gejala: 'Hasil: Kanker Batang dan Buah terdeteksi!', ya: '', tidak: '', hasil: 'p01', cf_pakar: 0.95 },
+
+      // P02: ANTRAKNOSA
+      { id: 'p02_check', gejala_id: 'g45', kode_gejala: 'G45', nama_gejala: 'Apakah ada bercak coklat basah yang agak cekung pada tunas atau buah yang mulai matang?', ya: 'p02_g46', tidak: 'p03_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'p02_g46', gejala_id: 'g46', kode_gejala: 'G46', nama_gejala: 'Apakah bercak busuk berwarna coklat itu melebar sangat cepat (terutama saat cuaca basah/lembab)?', ya: 'p02_confirmed', tidak: 'p02_g47', hasil: '', cf_pakar: 0.85 },
+      { id: 'p02_g47', gejala_id: 'g47', kode_gejala: 'G47', nama_gejala: 'Apakah bagian bercak terasa basah dan lembek ketika ditekan?', ya: 'p02_confirmed', tidak: 'p02_g48', hasil: '', cf_pakar: 0.8 },
+      { id: 'p02_g48', gejala_id: 'g48', kode_gejala: 'G48', nama_gejala: 'Apakah muncul lapisan berwarna oranye atau merah muda di atas bercak tersebut?', ya: 'p02_confirmed', tidak: 'p02_g49', hasil: '', cf_pakar: 0.85 },
+      { id: 'p02_g49', gejala_id: 'g49', kode_gejala: 'G49', nama_gejala: 'Apakah buah membusuk seluruhnya lalu jatuh?', ya: 'p02_confirmed', tidak: 'p03_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p02_confirmed', gejala_id: 'p02', kode_gejala: 'P02', nama_gejala: 'Hasil: Antraknosa terdeteksi!', ya: '', tidak: '', hasil: 'p02', cf_pakar: 0.95 },
+
+      // P03: BUSUK BATANG
+      { id: 'p03_check', gejala_id: 'g50', kode_gejala: 'G50', nama_gejala: 'Apakah sebagian batang berubah warna menjadi kuning?', ya: 'p03_g51', tidak: 'p04_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_g51', gejala_id: 'g51', kode_gejala: 'G51', nama_gejala: 'Apakah warna kuning kecoklatan merambat naik mengikuti arah batang?', ya: 'p03_g52', tidak: 'p03_g58', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g52', gejala_id: 'g52', kode_gejala: 'G52', nama_gejala: 'Jika batang dipotong secara melintang, apakah bagian dalamnya berwarna coklat?', ya: 'p03_confirmed', tidak: 'p03_g53', hasil: '', cf_pakar: 0.9 },
+      { id: 'p03_g53', gejala_id: 'g53', kode_gejala: 'G53', nama_gejala: 'Apakah batang terasa lembek dan berair saat ditekan?', ya: 'p03_confirmed', tidak: 'p03_g54', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g54', gejala_id: 'g54', kode_gejala: 'G54', nama_gejala: 'Apakah terlihat serabut jamur halus berwarna putih atau merah muda di permukaan batang?', ya: 'p03_confirmed', tidak: 'p03_g55', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_g55', gejala_id: 'g55', kode_gejala: 'G55', nama_gejala: 'Apakah batang menjadi sangat rapuh hingga mudah patah atau roboh?', ya: 'p03_confirmed', tidak: 'p03_g56', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g56', gejala_id: 'g56', kode_gejala: 'G56', nama_gejala: 'Apakah akhirnya batang mengering keriput dan berwarna coklat gelap?', ya: 'p03_confirmed', tidak: 'p03_g57', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_g57', gejala_id: 'g57', kode_gejala: 'G57', nama_gejala: 'Apakah bagian batang yang membusuk hancur berjatuhan dan menyisakan duri/kayu tengah saja?', ya: 'p03_confirmed', tidak: 'p03_g58', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g58', gejala_id: 'g58', kode_gejala: 'G58', nama_gejala: 'Apakah tercium bau busuk yang sangat tajam/menyengat dari batang yang sakit?', ya: 'p03_confirmed', tidak: 'p03_g59', hasil: '', cf_pakar: 0.9 },
+      { id: 'p03_g59', gejala_id: 'g59', kode_gejala: 'G59', nama_gejala: 'Apakah keluar cairan kental berwarna keruh (putih kecoklatan) dari batang?', ya: 'p03_confirmed', tidak: 'p03_g60', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g60', gejala_id: 'g60', kode_gejala: 'G60', nama_gejala: 'Apakah kulit luar batang sangat mudah dikelupas dan bagian dalamnya sudah busuk?', ya: 'p03_confirmed', tidak: 'p03_g61', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g61', gejala_id: 'g61', kode_gejala: 'G61', nama_gejala: 'Apakah warna batang berubah total dari hijau menjadi kuning kecoklatan hingga hitam?', ya: 'p03_confirmed', tidak: 'p04_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_confirmed', gejala_id: 'p03', kode_gejala: 'P03', nama_gejala: 'Hasil: Busuk Batang terdeteksi!', ya: '', tidak: '', hasil: 'p03', cf_pakar: 0.95 },
+
+      // P04: KUDIS / SCAB
+      { id: 'p04_check', gejala_id: 'g62', kode_gejala: 'G62', nama_gejala: 'Apakah ada bercak kecil coklat muda yang kasar seperti koreng/kudis pada batang atau buah?', ya: 'p04_g63', tidak: 'p05_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'p04_g63', gejala_id: 'g63', kode_gejala: 'G63', nama_gejala: 'Apakah bercak koreng tersebut membesar serta mengeras?', ya: 'p04_confirmed', tidak: 'p04_g64', hasil: '', cf_pakar: 0.8 },
+      { id: 'p04_g64', gejala_id: 'g64', kode_gejala: 'G64', nama_gejala: 'Apakah bagian pinggir bercak warnanya lebih tua dibandingkan bagian tengahnya?', ya: 'p04_confirmed', tidak: 'p04_g65', hasil: '', cf_pakar: 0.75 },
+      { id: 'p04_g65', gejala_id: 'g65', kode_gejala: 'G65', nama_gejala: 'Apakah bercak-bercak tersebut menyatu sehingga menutupi sebagian besar batang/buah?', ya: 'p04_confirmed', tidak: 'p04_g66', hasil: '', cf_pakar: 0.8 },
+      { id: 'p04_g66', gejala_id: 'g66', kode_gejala: 'G66', nama_gejala: 'Saat cuaca basah, apakah terlihat bintik-bintik hitam kecil di permukaan bercak?', ya: 'p04_confirmed', tidak: 'p05_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'p04_confirmed', gejala_id: 'p04', kode_gejala: 'P04', nama_gejala: 'Hasil: Kudis / Scab terdeteksi!', ya: '', tidak: '', hasil: 'p04', cf_pakar: 0.95 },
+
+      // P05: MOSAIK / BERCAK NEKROTIK
+      { id: 'p05_check', gejala_id: 'g67', kode_gejala: 'G67', nama_gejala: 'Apakah muncul bercak kecil berwarna oranye/jingga pada tunas muda?', ya: 'p05_g68', tidak: 'p06_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p05_g68', gejala_id: 'g68', kode_gejala: 'G68', nama_gejala: 'Apakah warna batang tampak belang-belang (kombinasi hijau dan kuning)?', ya: 'p05_confirmed', tidak: 'p05_g69', hasil: '', cf_pakar: 0.85 },
+      { id: 'p05_g69', gejala_id: 'g69', kode_gejala: 'G69', nama_gejala: 'Apakah terdapat bagian kulit batang tua atau kulit buah yang mati/mengering?', ya: 'p05_confirmed', tidak: 'p05_g70', hasil: '', cf_pakar: 0.8 },
+      { id: 'p05_g70', gejala_id: 'g70', kode_gejala: 'G70', nama_gejala: 'Apakah terlihat bintik-bintik pucat melingkar di batang?', ya: 'p05_confirmed', tidak: 'p05_g71', hasil: '', cf_pakar: 0.85 },
+      { id: 'p05_g71', gejala_id: 'g71', kode_gejala: 'G71', nama_gejala: 'Apakah tunas baru tumbuh melintir/tidak lurus atau bentuknya aneh?', ya: 'p05_confirmed', tidak: 'p06_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p05_confirmed', gejala_id: 'p05', kode_gejala: 'P05', nama_gejala: 'Hasil: Mosaik / Bercak Nekrotik terdeteksi!', ya: '', tidak: '', hasil: 'p05', cf_pakar: 0.95 },
+
+      // P06: PURU AKAR
+      { id: 'p06_check', gejala_id: 'g72', kode_gejala: 'G72', nama_gejala: 'Jika dicabut, apakah terlihat ada benjolan/bisul (seperti kutil) pada akar?', ya: 'p06_confirmed', tidak: 'p06_g73', hasil: '', cf_pakar: 0.9 },
+      { id: 'p06_g73', gejala_id: 'g73', kode_gejala: 'G73', nama_gejala: 'Apakah jumlah akar sangat sedikit, pendek-pendek, dan tidak tumbuh subur?', ya: 'p06_confirmed', tidak: 'p06_g74', hasil: '', cf_pakar: 0.85 },
+      { id: 'p06_g74', gejala_id: 'g74', kode_gejala: 'G74', nama_gejala: 'Apakah tanaman tetap berwarna kuning pucat meskipun pemupukan/penyiraman sudah cukup?', ya: 'p06_confirmed', tidak: 'p06_g75', hasil: '', cf_pakar: 0.8 },
+      { id: 'p06_g75', gejala_id: 'g75', kode_gejala: 'G75', nama_gejala: 'Apakah tanaman tampak kerdil dan pertumbuhannya sangat lambat?', ya: 'p06_confirmed', tidak: 'p06_g76', hasil: '', cf_pakar: 0.85 },
+      { id: 'p06_g76', gejala_id: 'g76', kode_gejala: 'G76', nama_gejala: 'Apakah akar berwarna coklat tua/hitam serta mudah membusuk?', ya: 'p06_confirmed', tidak: 'penyakit_not_found', hasil: '', cf_pakar: 0.85 },
+      { id: 'p06_confirmed', gejala_id: 'p06', kode_gejala: 'P06', nama_gejala: 'Hasil: Puru Akar terdeteksi!', ya: '', tidak: '', hasil: 'p06', cf_pakar: 0.95 },
+      { id: 'penyakit_not_found', gejala_id: 'penyakit_not_found', kode_gejala: 'PENYAKIT?', nama_gejala: 'Penyakit tidak dapat diidentifikasi dari gejala yang diberikan. Coba konsultasikan dengan ahli.', ya: '', tidak: '', hasil: 'penyakit_not_found', cf_pakar: 0 }
+    ];
+
+    // Node Positions Layout Map (GRID COORDINATES)
+    const nodePositions = {
+      // ROOT & GROUPS
+      "root": { x: 1500, y: 50 },
+      "hama_group": { x: 750, y: 150 },
+      "penyakit_group": { x: 2250, y: 150 },
+
+      // === HAMA COLUMNS ===
+      // H01: Kutu Putih (Col 0, X-Center: 350)
+      "h01_check": { x: 300, y: 250 },
+      "h01_g02": { x: 220, y: 350 },
+      "h01_g05": { x: 380, y: 350 },
+      "h01_g03": { x: 160, y: 450 },
+      "h01_g06": { x: 380, y: 450 },
+      "h01_g04": { x: 220, y: 550 },
+      "h01_confirmed": { x: 300, y: 650 },
+
+      // H02: Aphids (Col 1, X-Center: 750)
+      "h02_check": { x: 700, y: 250 },
+      "h02_g08": { x: 620, y: 350 },
+      "h02_g09": { x: 620, y: 450 },
+      "h02_g10": { x: 620, y: 550 },
+      "h02_g11": { x: 620, y: 650 },
+      "h02_confirmed": { x: 700, y: 750 },
+
+      // H03: Kutu Sisik (Col 2, X-Center: 1100)
+      "h03_check": { x: 1100, y: 250 },
+      "h03_g13": { x: 1020, y: 350 },
+      "h03_g14": { x: 1020, y: 450 },
+      "h03_g15": { x: 1020, y: 550 },
+      "h03_confirmed": { x: 1100, y: 650 },
+
+      // H04: Lalat Buah (Col 3, X-Center: 1500)
+      "h04_check": { x: 1500, y: 250 },
+      "h04_g17": { x: 1420, y: 350 },
+      "h04_g18": { x: 1420, y: 450 },
+      "h04_g19": { x: 1420, y: 550 },
+      "h04_g20": { x: 1420, y: 650 },
+      "h04_confirmed": { x: 1500, y: 750 },
+
+      // H05: Bekicot (Col 4, X-Center: 1900)
+      "h05_check": { x: 1900, y: 250 },
+      "h05_g22": { x: 1820, y: 350 },
+      "h05_g23": { x: 1820, y: 450 },
+      "h05_g24": { x: 1820, y: 550 },
+      "h05_g25": { x: 1820, y: 650 },
+      "h05_g26": { x: 1820, y: 750 },
+      "h05_confirmed": { x: 1900, y: 850 },
+
+      // H06: Belalang (Col 5, X-Center: 2300)
+      "h06_check": { x: 2300, y: 250 },
+      "h06_g28": { x: 2220, y: 350 },
+      "h06_g29": { x: 2220, y: 450 },
+      "h06_g30": { x: 2220, y: 550 },
+      "h06_g31": { x: 2220, y: 650 },
+      "h06_confirmed": { x: 2300, y: 750 },
+
+      // H07: Tungau (Col 6, X-Center: 2700)
+      "h07_check": { x: 2700, y: 250 },
+      "h07_g33": { x: 2620, y: 350 },
+      "h07_g34": { x: 2620, y: 450 },
+      "h07_g35": { x: 2620, y: 550 },
+      "h07_g36": { x: 2620, y: 650 },
+      "h07_g37": { x: 2620, y: 750 },
+      "h07_confirmed": { x: 2700, y: 850 },
+      
+      "hama_not_found": { x: 2880, y: 350 },
+
+      // === PENYAKIT COLUMNS ===
+      // P01: Kanker Batang (Col 0, X-Center: 300)
+      "p01_check": { x: 300, y: 250 },
+      "p01_g39": { x: 300, y: 350 },
+      "p01_g40": { x: 220, y: 450 },
+      "p01_g41": { x: 220, y: 550 },
+      "p01_g42": { x: 380, y: 450 },
+      "p01_g43": { x: 380, y: 550 },
+      "p01_g44": { x: 380, y: 650 },
+      "p01_confirmed": { x: 300, y: 750 },
+
+      // P02: Antraknosa (Col 1, X-Center: 700)
+      "p02_check": { x: 700, y: 250 },
+      "p02_g46": { x: 620, y: 350 },
+      "p02_g47": { x: 620, y: 450 },
+      "p02_g48": { x: 620, y: 550 },
+      "p02_g49": { x: 620, y: 650 },
+      "p02_confirmed": { x: 700, y: 750 },
+
+      // P03: Busuk Batang (Col 2, X-Center: 1100)
+      "p03_check": { x: 1100, y: 250 },
+      "p03_g51": { x: 1100, y: 350 },
+      "p03_g52": { x: 1000, y: 450 },
+      "p03_g53": { x: 1000, y: 550 },
+      "p03_g54": { x: 1000, y: 650 },
+      "p03_g55": { x: 1000, y: 750 },
+      "p03_g56": { x: 1000, y: 850 },
+      "p03_g57": { x: 1000, y: 950 },
+      "p03_g58": { x: 1200, y: 450 },
+      "p03_g59": { x: 1200, y: 550 },
+      "p03_g60": { x: 1200, y: 650 },
+      "p03_g61": { x: 1200, y: 750 },
+      "p03_confirmed": { x: 1100, y: 1080 },
+
+      // P04: Kudis (Col 3, X-Center: 1500)
+      "p04_check": { x: 1500, y: 250 },
+      "p04_g63": { x: 1420, y: 350 },
+      "p04_g64": { x: 1420, y: 450 },
+      "p04_g65": { x: 1420, y: 550 },
+      "p04_g66": { x: 1420, y: 650 },
+      "p04_confirmed": { x: 1500, y: 750 },
+
+      // P05: Mosaik (Col 4, X-Center: 1900)
+      "p05_check": { x: 1900, y: 250 },
+      "p05_g68": { x: 1820, y: 350 },
+      "p05_g69": { x: 1820, y: 450 },
+      "p05_g70": { x: 1820, y: 550 },
+      "p05_g71": { x: 1820, y: 650 },
+      "p05_confirmed": { x: 1900, y: 750 },
+
+      // P06: Puru Akar (Col 5, X-Center: 2300)
+      "p06_check": { x: 2300, y: 250 },
+      "p06_g73": { x: 2220, y: 350 },
+      "p06_g74": { x: 2220, y: 450 },
+      "p06_g75": { x: 2220, y: 550 },
+      "p06_g76": { x: 2220, y: 650 },
+      "p06_confirmed": { x: 2300, y: 750 },
+      
+      "penyakit_not_found": { x: 2480, y: 350 }
+    };
+
+    // State Variables
+    let currentTreeType = 'hama';
+    let zoomLevel = 1.0;
+    let panX = 40;
+    let panY = 40;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    const svg = document.getElementById('treeSvg');
+    const nodesGroup = document.getElementById('nodesGroup');
+    const edgesGroup = document.getElementById('edgesGroup');
+    const container = document.getElementById('canvasContainer');
+
+    // Get Active Nodes based on current Tab view
+    const getActiveNodes = () => {
+      if (currentTreeType === 'hama') {
+        return rawNodes.filter(n => n.id.startsWith('h') || n.id === 'root');
+      } else if (currentTreeType === 'penyakit') {
+        return rawNodes.filter(n => n.id.startsWith('p') || n.id === 'root');
+      } else {
+        return rawNodes; // Combined
+      }
+    };
+
+    // Resolve node position with respect to combined view offset
+    const getCoords = (nodeId) => {
+      const pos = nodePositions[nodeId];
+      if (!pos) return { x: 0, y: 0 };
+      
+      // In combined view, offset all penyakit nodes horizontally to prevent overlap
+      if (currentTreeType === 'gabungan' && (nodeId.startsWith('p0') || nodeId === 'penyakit_group' || nodeId === 'penyakit_not_found')) {
+        return {
+          x: pos.x + 2800,
+          y: pos.y
+        };
+      }
+      
+      // Shift root and groups slightly in single-tree views for aesthetic layout
+      if (currentTreeType === 'hama') {
+        if (nodeId === 'root') return { x: 300, y: 50 };
+        if (nodeId === 'hama_group') return { x: 300, y: 150 };
+      }
+      if (currentTreeType === 'penyakit') {
+        if (nodeId === 'root') return { x: 300, y: 50 };
+        if (nodeId === 'penyakit_group') return { x: 300, y: 150 };
+      }
+
+      return pos;
+    };
+
+    // Render tree SVG Elements
+    const renderTree = () => {
+      nodesGroup.innerHTML = '';
+      edgesGroup.innerHTML = '';
+      
+      const activeNodes = getActiveNodes();
+      const nodeIds = new Set(activeNodes.map(n => n.id));
+      
+      // Draw Connections (Edges) first so they render under circles
+      activeNodes.forEach(n => {
+        const drawEdge = (targetId, label) => {
+          if (!targetId || !nodeIds.has(targetId)) return;
+          
+          const fromCoords = getCoords(n.id);
+          const toCoords = getCoords(targetId);
+          
+          // Calculate vector direction
+          const dx = toCoords.x - fromCoords.x;
+          const dy = toCoords.y - fromCoords.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const ux = dx / dist;
+          const uy = dy / dist;
+          
+          // Circle radius
+          const r = 20;
+          
+          // Line start/end at circle boundaries
+          const x1 = fromCoords.x + ux * r;
+          const y1 = fromCoords.y + uy * r;
+          const x2 = toCoords.x - ux * r;
+          const y2 = toCoords.y - uy * r;
+          
+          // Path
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', x1);
+          line.setAttribute('y1', y1);
+          line.setAttribute('x2', x2);
+          line.setAttribute('y2', y2);
+          
+          // Styling: solid for YA, dashed for TIDAK
+          const isYa = (label === 'Y');
+          line.setAttribute('class', `edge-line ${isYa ? 'edge-line-ya' : 'edge-line-tidak'}`);
+          line.setAttribute('id', `edge_${n.id}_${targetId}`);
+          line.setAttribute('marker-end', 'url(#arrow)');
+          edgesGroup.appendChild(line);
+          
+          // Label Midpoint
+          const lx = x1 + (x2 - x1) * 0.35 - uy * 6;
+          const ly = y1 + (y2 - y1) * 0.35 + ux * 6;
+          
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', lx);
+          text.setAttribute('y', ly);
+          text.setAttribute('class', 'edge-label');
+          text.setAttribute('id', `label_${n.id}_${targetId}`);
+          text.textContent = label;
+          edgesGroup.appendChild(text);
+        };
+        
+        drawEdge(n.ya, 'Y');
+        drawEdge(n.tidak, 'T');
+      });
+
+      // Draw Nodes
+      activeNodes.forEach(n => {
+        const coords = getCoords(n.id);
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('transform', `translate(${coords.x},${coords.y})`);
+        
+        const shape = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        shape.setAttribute('cx', 0);
+        shape.setAttribute('cy', 0);
+        shape.setAttribute('r', 20);
+        
+        // Determine shape styling
+        const isLeaf = n.hasil !== '';
+        shape.setAttribute('class', isLeaf ? 'node-leaf' : 'node-circle');
+        shape.setAttribute('id', `node_${n.id}`);
+        
+        // Interaction events
+        shape.addEventListener('mouseover', () => highlightNode(n));
+        shape.addEventListener('mouseout', () => clearHighlight());
+        shape.addEventListener('click', () => showNodeInfo(n));
+        
+        // Adjust font-size based on text length to prevent clipping inside circles
+        const textLen = n.kode_gejala.length;
+        const fontSize = textLen > 5 ? '7.5px' : (textLen > 3 ? '9px' : '11px');
+        
+        const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txt.setAttribute('class', 'node-text');
+        txt.setAttribute('style', `font-size: ${fontSize};`);
+        txt.textContent = n.kode_gejala;
+        
+        g.appendChild(shape);
+        g.appendChild(txt);
+        nodesGroup.appendChild(g);
+      });
+
+      // Adjust SVG Viewport size
+      let maxX = 3000;
+      let maxY = 1200;
+      
+      if (currentTreeType === 'hama') {
+        maxX = 3100;
+        maxY = 1000;
+      } else if (currentTreeType === 'penyakit') {
+        maxX = 2700;
+        maxY = 1200;
+      } else { // Combined
+        maxX = 5800;
+        maxY = 1200;
+      }
+      
+      svg.setAttribute('width', maxX);
+      svg.setAttribute('height', maxY);
+    };
+
+    // Switch Tree Data Tabs
+    const switchTree = (type) => {
+      currentTreeType = type;
+      
+      // Update Tab CSS
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`tab-${type}`).classList.add('active');
+
+      renderTree();
+      resetZoom();
+      clearSearch();
+    };
+
+    // Zoom and Pan Handlers
+    const updateTransform = () => {
+      nodesGroup.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoomLevel})`);
+      edgesGroup.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoomLevel})`);
+    };
+
+    const zoom = (factor) => {
+      zoomLevel = Math.max(0.08, Math.min(zoomLevel * factor, 4));
+      updateTransform();
+    };
+
+    const resetZoom = () => {
+      // Auto-fit responsive scale based on tab selection
+      const containerWidth = container.clientWidth;
+      if (currentTreeType === 'gabungan') {
+        zoomLevel = Math.max(0.12, containerWidth / 5800 * 0.95);
+      } else if (currentTreeType === 'hama') {
+        zoomLevel = Math.max(0.25, containerWidth / 3100 * 0.95);
+      } else {
+        zoomLevel = Math.max(0.25, containerWidth / 2700 * 0.95);
+      }
+      
+      panX = 40;
+      panY = 40;
+      updateTransform();
+    };
+
+    // Pan (Drag & Drop)
+    container.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('node-circle') || e.target.classList.contains('node-leaf')) return;
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      zoom(zoomFactor);
+    });
+
+    const resetView = () => {
+      switchTree(currentTreeType);
+    };
+
+    // Highlight entire path to root
+    const highlightNode = (node) => {
+      // Mute all nodes and links
+      document.querySelectorAll('.node-circle, .node-leaf').forEach(el => el.classList.add('muted'));
+      document.querySelectorAll('.edge-line, .edge-label').forEach(el => el.classList.add('muted'));
+      
+      const visitedNodes = new Set();
+      const activeNodes = getActiveNodes();
+      
+      // Helper to find parent nodes recursively in active scope
+      const highlightAncestors = (currNode) => {
+        if (!currNode || visitedNodes.has(currNode.id)) return;
+        visitedNodes.add(currNode.id);
+        
+        const nodeEl = document.getElementById(`node_${currNode.id}`);
+        if (nodeEl) {
+          nodeEl.classList.remove('muted');
+          nodeEl.classList.add('highlighted');
+        }
+        
+        // Find parents
+        activeNodes.forEach(parent => {
+          if (parent.ya === currNode.id || parent.tidak === currNode.id) {
+            const isYa = (parent.ya === currNode.id);
+            const edgeEl = document.getElementById(`edge_${parent.id}_${currNode.id}`);
+            const labelEl = document.getElementById(`label_${parent.id}_${currNode.id}`);
+            
+            if (edgeEl) {
+              edgeEl.classList.remove('muted');
+              edgeEl.classList.add('highlighted');
+              edgeEl.setAttribute('marker-end', 'url(#arrow-highlighted)');
+            }
+            if (labelEl) {
+              labelEl.classList.remove('muted');
+              labelEl.classList.add('highlighted');
+            }
+            highlightAncestors(parent);
+          }
+        });
+      };
+      
+      highlightAncestors(node);
+    };
+
+    const clearHighlight = () => {
+      document.querySelectorAll('.node-circle, .node-leaf').forEach(el => {
+        el.classList.remove('muted', 'highlighted');
+      });
+      document.querySelectorAll('.edge-line, .edge-label').forEach(el => {
+        el.classList.remove('muted', 'highlighted');
+      });
+      document.querySelectorAll('.edge-line').forEach(el => {
+        el.setAttribute('marker-end', 'url(#arrow)');
+      });
+    };
+
+    // Show Node details in Sidebar Info Panel
+    const showNodeInfo = (node) => {
+      const infoPanel = document.getElementById('infoPanel');
+      let badgeClass = 'badge-gejala';
+      let typeLabel = 'Gejala';
+      
+      if (node.id === 'root' || node.id.endsWith('_group')) {
+        badgeClass = 'badge-group';
+        typeLabel = 'Sistem';
+      } else if (node.hasil !== '') {
+        const isHama = node.hasil.startsWith('h');
+        badgeClass = isHama ? 'badge-hama' : 'badge-penyakit';
+        typeLabel = isHama ? 'Hama' : 'Penyakit';
+      } else {
+        const isHama = node.id.startsWith('h');
+        badgeClass = isHama ? 'badge-gejala' : 'badge-gejala';
+        typeLabel = isHama ? 'Gejala Hama' : 'Gejala Penyakit';
+      }
+
+      infoPanel.innerHTML = `
+        <div class="info-title">
+          <span style="font-weight:800; font-size: 15px;">${node.kode_gejala}</span>
+          <span class="info-badge ${badgeClass}">${typeLabel}</span>
+        </div>
+        <div class="info-desc">
+          <strong>Keterangan:</strong><br>
+          ${node.nama_gejala}
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 8px; border-top: 1px dashed #cbd5e1; padding-top: 8px; display:flex; flex-direction:column; gap: 4px;">
+          <div><strong>ID Node:</strong> <code>${node.id}</code></div>
+          ${node.cf_pakar ? `<div><strong>Bobot Pakar (CF):</strong> <code>${node.cf_pakar}</code></div>` : ''}
+          ${node.ya ? `<div><strong>Jika YA (Y) &rarr;</strong> <code>${node.ya}</code></div>` : ''}
+          ${node.tidak ? `<div><strong>Jika TIDAK (T) &rarr;</strong> <code>${node.tidak}</code></div>` : ''}
+          ${node.hasil ? `<div><strong>Kesimpulan Hasil &rarr;</strong> <code>${node.hasil}</code></div>` : ''}
+        </div>
+      `;
+    };
+
+    // Search bar functionality
+    const handleSearch = () => {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      const clearBtn = document.getElementById('searchClearBtn');
+      
+      if (q === '') {
+        clearBtn.style.display = 'none';
+        clearHighlight();
+        return;
+      }
+      
+      clearBtn.style.display = 'block';
+      
+      const activeNodes = getActiveNodes();
+      
+      // Find matching node
+      const match = activeNodes.find(n => 
+        n.kode_gejala.toLowerCase() === q || 
+        n.id.toLowerCase() === q || 
+        n.nama_gejala.toLowerCase().includes(q)
+      );
+
+      if (match) {
+        highlightNode(match);
+        showNodeInfo(match);
+        
+        // Center view on the matched node coordinates
+        const coords = getCoords(match.id);
+        panX = container.clientWidth / 2 - coords.x * zoomLevel;
+        panY = container.clientHeight / 2 - coords.y * zoomLevel;
+        updateTransform();
+      } else {
+        clearHighlight();
+      }
+    };
+
+    const clearSearch = () => {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('searchClearBtn').style.display = 'none';
+      clearHighlight();
+      document.getElementById('infoPanel').innerHTML = `
+        <div class="info-empty">Arahkan kursor atau klik node pada pohon untuk melihat detail di sini.</div>
+      `;
+    };
+
+    // Download SVG file
+    const downloadSVG = () => {
+      const svgData = svg.outerHTML;
+      const svgBlob = new Blob([svgData], {type:"image/svg+xml;charset=utf-8"});
+      const svgUrl = URL.createObjectURL(svgBlob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = svgUrl;
+      downloadLink.download = `pohon_keputusan_${currentTreeType}.svg`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    };
+
+    // Init App
+    window.onload = () => {
+      switchTree('hama');
+    };
+  </script>
+</body>
+</html>

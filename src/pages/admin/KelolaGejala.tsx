@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,12 +21,16 @@ import {
 } from '@/components/ui/table';
 import { Plus, Edit, Trash2, Search, Stethoscope, Gauge, Loader2 } from 'lucide-react';
 import { fetchGejala, insertGejala, updateGejala, deleteGejala } from '@/services/supabaseService';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { toast } from 'sonner';
 import type { Gejala } from '@/types';
+
+const ITEMS_PER_PAGE = 10;
 
 export const KelolaGejala = () => {
   const [gejalaList, setGejalaList] = useState<Gejala[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGejala, setEditingGejala] = useState<Gejala | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +63,12 @@ export const KelolaGejala = () => {
     g.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
     g.kode.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredGejala.length / ITEMS_PER_PAGE));
+  const paginatedGejala = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredGejala.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredGejala, currentPage]);
 
   const handleAdd = () => {
     setEditingGejala(null);
@@ -250,7 +260,7 @@ export const KelolaGejala = () => {
             <Input
               placeholder="Cari gejala..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               className="pl-10"
             />
           </div>
@@ -271,8 +281,8 @@ export const KelolaGejala = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredGejala.length > 0 ? (
-                filteredGejala.map((gejala) => (
+              {paginatedGejala.length > 0 ? (
+                paginatedGejala.map((gejala) => (
                   <TableRow key={gejala.id}>
                     <TableCell className="font-medium">{gejala.kode}</TableCell>
                     <TableCell>
@@ -319,6 +329,13 @@ export const KelolaGejala = () => {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredGejala.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
 

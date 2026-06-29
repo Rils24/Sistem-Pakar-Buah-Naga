@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,14 +20,18 @@ import {
 } from '@/components/ui/table';
 import { Plus, Edit, Trash2, Search, BookOpen, GitBranch, Loader2 } from 'lucide-react';
 import { fetchRules, fetchPenyakit, fetchGejala, insertRule, updateRule, deleteRule } from '@/services/supabaseService';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { toast } from 'sonner';
 import type { Rule, Penyakit, Gejala } from '@/types';
+
+const ITEMS_PER_PAGE = 10;
 
 export const KelolaRules = () => {
   const [rulesList, setRulesList] = useState<Rule[]>([]);
   const [penyakitList, setPenyakitList] = useState<Penyakit[]>([]);
   const [gejalaList, setGejalaList] = useState<Gejala[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
   const [selectedPenyakit, setSelectedPenyakit] = useState('');
@@ -82,6 +86,12 @@ export const KelolaRules = () => {
     getPenyakitName(r.penyakit_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
     getPenyakitKode(r.penyakit_id).toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredRules.length / ITEMS_PER_PAGE));
+  const paginatedRules = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRules.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRules, currentPage]);
 
   const handleAdd = () => {
     setEditingRule(null);
@@ -292,7 +302,7 @@ export const KelolaRules = () => {
             <Input
               placeholder="Cari rule berdasarkan penyakit..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               className="pl-10"
             />
           </div>
@@ -312,11 +322,11 @@ export const KelolaRules = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRules.length > 0 ? (
-                filteredRules.map((rule, index) => (
+              {paginatedRules.length > 0 ? (
+                paginatedRules.map((rule, index) => (
                   <TableRow key={rule.id}>
                     <TableCell className="font-medium text-gray-500">
-                      R{String(index + 1).padStart(2, '0')}
+                      R{String((currentPage - 1) * ITEMS_PER_PAGE + index + 1).padStart(2, '0')}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -371,6 +381,13 @@ export const KelolaRules = () => {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredRules.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
 

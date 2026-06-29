@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,16 @@ import {
 } from '@/components/ui/table';
 import { Plus, Edit, Trash2, Search, Sprout, Loader2, ImagePlus, X, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchPenyakit, insertPenyakit, updatePenyakit, deletePenyakit, uploadMultiplePenyakitImages, deletePenyakitImage, deleteMultiplePenyakitImages } from '@/services/supabaseService';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { toast } from 'sonner';
 import type { Penyakit } from '@/types';
+
+const ITEMS_PER_PAGE = 10;
 
 export const KelolaPenyakit = () => {
   const [penyakitList, setPenyakitList] = useState<Penyakit[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPenyakit, setEditingPenyakit] = useState<Penyakit | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +57,12 @@ export const KelolaPenyakit = () => {
     p.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.kode.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredPenyakit.length / ITEMS_PER_PAGE));
+  const paginatedPenyakit = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredPenyakit.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredPenyakit, currentPage]);
 
   const resetImageState = () => {
     setNewFiles([]); setNewPreviews([]); setExistingUrls([]); setRemovedUrls([]);
@@ -300,7 +310,7 @@ export const KelolaPenyakit = () => {
       <Card><CardContent className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input placeholder="Cari penyakit..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+          <Input placeholder="Cari penyakit..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-10" />
         </div>
       </CardContent></Card>
 
@@ -318,7 +328,7 @@ export const KelolaPenyakit = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPenyakit.length > 0 ? filteredPenyakit.map(p => (
+            {paginatedPenyakit.length > 0 ? paginatedPenyakit.map(p => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.kode}</TableCell>
                 <TableCell>
@@ -360,6 +370,13 @@ export const KelolaPenyakit = () => {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredPenyakit.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </CardContent></Card>
 
       <div className="bg-blue-50 rounded-lg p-4">

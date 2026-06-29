@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,12 +19,16 @@ import {
 } from '@/components/ui/table';
 import { Edit, Trash2, Search, Users, User, Shield, Loader2 } from 'lucide-react';
 import { fetchUsers, updateUser, deleteUserById } from '@/services/supabaseService';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { toast } from 'sonner';
 import type { User as UserType } from '@/types';
+
+const ITEMS_PER_PAGE = 10;
 
 export const KelolaUsers = () => {
   const [usersList, setUsersList] = useState<UserType[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +60,12 @@ export const KelolaUsers = () => {
     u.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / ITEMS_PER_PAGE));
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredUsers, currentPage]);
 
   const handleEdit = (user: UserType) => {
     setEditingUser(user);
@@ -143,7 +153,7 @@ export const KelolaUsers = () => {
             <Input
               placeholder="Cari user..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               className="pl-10"
             />
           </div>
@@ -164,8 +174,8 @@ export const KelolaUsers = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
+              {paginatedUsers.length > 0 ? (
+                paginatedUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -213,6 +223,13 @@ export const KelolaUsers = () => {
               )}
             </TableBody>
           </Table>
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredUsers.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,10 @@ import {
   ChevronRight,
   X
 } from 'lucide-react';
+import { TablePagination } from '@/components/ui/table-pagination';
 import { toast } from 'sonner';
+
+const ITEMS_PER_PAGE = 10;
 
 export const LaporanDiagnosa = () => {
   const [laporanList, setLaporanList] = useState<any[]>([]);
@@ -48,6 +51,7 @@ export const LaporanDiagnosa = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTanggal, setFilterTanggal] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
@@ -103,6 +107,12 @@ export const LaporanDiagnosa = () => {
     const matchTanggal = !filterTanggal || item.tanggal?.startsWith(filterTanggal);
     return matchSearch && matchTanggal;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredList.length / ITEMS_PER_PAGE));
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredList.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredList, currentPage]);
 
   // Stats
   const totalDiagnosa = laporanList.length;
@@ -295,7 +305,7 @@ export const LaporanDiagnosa = () => {
           <Input
             placeholder="Cari nama penyakit atau nama user..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             className="pl-10"
           />
         </div>
@@ -304,7 +314,7 @@ export const LaporanDiagnosa = () => {
           <Input
             type="date"
             value={filterTanggal}
-            onChange={(e) => setFilterTanggal(e.target.value)}
+            onChange={(e) => { setFilterTanggal(e.target.value); setCurrentPage(1); }}
             className="pl-10 w-full sm:w-48"
           />
         </div>
@@ -328,14 +338,15 @@ export const LaporanDiagnosa = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredList.map((item, index) => {
+                  {paginatedList.map((item, index) => {
                     const cfValue = item.cf_tertinggi || 0;
                     const penyakitName = item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || '-';
                     const gejalaCount = item.gejala_dipilih?.length || 0;
+                    const globalIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
 
                     return (
                       <tr key={item.id || index} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-5 py-3.5 text-sm text-gray-500 font-mono">{index + 1}</td>
+                        <td className="px-5 py-3.5 text-sm text-gray-500 font-mono">{globalIndex + 1}</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
@@ -397,6 +408,13 @@ export const LaporanDiagnosa = () => {
                   })}
                 </tbody>
               </table>
+              <TablePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredList.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+                onPageChange={setCurrentPage}
+              />
             </div>
           ) : (
             <div className="py-16 text-center">
