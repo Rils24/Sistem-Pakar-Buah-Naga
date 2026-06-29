@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pohon Keputusan - Sistem Pakar Buah Naga</title>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * {
       margin: 0;
@@ -410,6 +412,39 @@
       background: transparent;
       border-top: 2px dashed #111;
     }
+
+    /* Live Database Sync Badge styling */
+    .sync-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 10px;
+      border: 1.5px solid #1e293b;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .sync-badge:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    .sync-badge.sync-loading {
+      background: #fef08a;
+      color: #854d0e;
+      border-color: #ca8a04;
+    }
+    .sync-badge.sync-success {
+      background: #bbf7d0;
+      color: #166534;
+      border-color: #22c55e;
+    }
+    .sync-badge.sync-fallback {
+      background: #e2e8f0;
+      color: #475569;
+      border-color: #94a3b8;
+    }
   </style>
 </head>
 <body>
@@ -419,6 +454,7 @@
     <div class="header">
       <h1>Pohon Keputusan</h1>
       <p>Sistem Pakar Diagnosa Hama & Penyakit Buah Naga</p>
+      <div id="sync-status" class="sync-badge sync-loading" title="Klik untuk menyegarkan data langsung">Menghubungkan ke Database...</div>
     </div>
     
     <!-- Tab Selector -->
@@ -510,121 +546,143 @@
       { id: 'penyakit_group', gejala_id: 'penyakit', kode_gejala: 'PENYAKIT', nama_gejala: 'Terdeteksi adanya indikasi PENYAKIT (Jamur/Bakteri/Virus). Mari kita cari tahu penyakit apa yang menyerang.', ya: 'p01_check', tidak: '', hasil: '', cf_pakar: 1.0 },
 
       // H01: KUTU PUTIH
-      { id: 'h01_check', gejala_id: 'g01', kode_gejala: 'G01', nama_gejala: 'Apakah terlihat lapisan putih seperti kapas atau sarang laba-laba pada batang dan buah?', ya: 'h01_g02', tidak: 'h02_check', hasil: '', cf_pakar: 0.9 },
-      { id: 'h01_g02', gejala_id: 'g02', kode_gejala: 'G02', nama_gejala: 'Apakah Anda melihat kumpulan kutu atau serangga kecil di sekitar lapisan putih tersebut?', ya: 'h01_g03', tidak: 'h01_g05', hasil: '', cf_pakar: 0.9 },
-      { id: 'h01_g03', gejala_id: 'g03', kode_gejala: 'G03', nama_gejala: 'Apakah lapisan putih tersebut terasa lengket ketika disentuh?', ya: 'h01_confirmed', tidak: 'h01_g04', hasil: '', cf_pakar: 0.85 },
-      { id: 'h01_g04', gejala_id: 'g04', kode_gejala: 'G04', nama_gejala: 'Apakah bagian batang atau buah terlihat kusam dan kotor?', ya: 'h01_confirmed', tidak: 'h02_check', hasil: '', cf_pakar: 0.7 },
-      { id: 'h01_g05', gejala_id: 'g05', kode_gejala: 'G05', nama_gejala: 'Apakah ada jamur berwarna hitam (seperti jelaga) di bagian yang terserang?', ya: 'h01_confirmed', tidak: 'h01_g06', hasil: '', cf_pakar: 0.8 },
-      { id: 'h01_g06', gejala_id: 'g06', kode_gejala: 'G06', nama_gejala: 'Apakah banyak semut berkeliaran di sekitar lapisan putih tersebut?', ya: 'h01_confirmed', tidak: 'h02_check', hasil: '', cf_pakar: 0.75 },
+      { id: 'h01_check', gejala_id: 'g01', kode_gejala: 'G01', nama_gejala: 'Terdapat lapisan putih seperti kapas dan jejaring menempel pada batang dan buah', ya: 'h01_g02', tidak: 'h02_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h01_g02', gejala_id: 'g02', kode_gejala: 'G02', nama_gejala: 'Ditemukan individu atau kumpulan hama pada lapisan lilin atau di sekitarnya', ya: 'h01_g03_y', tidak: 'h01_g03_t', hasil: '', cf_pakar: 0.9 },
+      { id: 'h01_g03_y', gejala_id: 'g03', kode_gejala: 'G03', nama_gejala: 'Lapisan putih berlilin dan lengket jika dipegang', ya: 'h01_g04_y', tidak: 'h01_g04_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'h01_g04_y', gejala_id: 'g04', kode_gejala: 'G04', nama_gejala: 'Batang atau buah tampak kusam and kotor', ya: 'h01_g05', tidak: 'h01_confirmed', hasil: '', cf_pakar: 0.7 },
+      { id: 'h01_g05', gejala_id: 'g05', kode_gejala: 'G05', nama_gejala: 'Muncul jamur jelaga berwarna hitam pada permukaan yang diserang', ya: 'h01_g06', tidak: 'h01_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'h01_g06', gejala_id: 'g06', kode_gejala: 'G06', nama_gejala: 'Jika ada kutu putih sering ditemukan adanya semut', ya: 'h01_confirmed', tidak: 'h01_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h01_g04_t', gejala_id: 'g04', kode_gejala: 'G04', nama_gejala: 'Batang atau buah tampak kusam and kotor (Jalur alternatif)', ya: 'h01_g05', tidak: 'h01_confirmed', hasil: '', cf_pakar: 0.7 },
+      { id: 'h01_g03_t', gejala_id: 'g03', kode_gejala: 'G03', nama_gejala: 'Lapisan putih berlilin dan lengket jika dipegang (Jalur alternatif)', ya: 'h01_g04_t', tidak: 'h01_g04_tr', hasil: '', cf_pakar: 0.85 },
+      { id: 'h01_g04_tr', gejala_id: 'g04', kode_gejala: 'G04', nama_gejala: 'Batang atau buah tampak kusam and kotor (Jalur alternatif 2)', ya: 'h01_g05', tidak: 'h01_confirmed', hasil: '', cf_pakar: 0.7 },
       { id: 'h01_confirmed', gejala_id: 'h01', kode_gejala: 'H01', nama_gejala: 'Hasil: Kutu Putih terdeteksi!', ya: '', tidak: '', hasil: 'h01', cf_pakar: 0.95 },
 
       // H02: APHIDS
-      { id: 'h02_check', gejala_id: 'g07', kode_gejala: 'G07', nama_gejala: 'Apakah ada gerombolan kutu kecil berwarna hijau atau hitam di batang, kelopak bunga, atau sisik buah?', ya: 'h02_g08', tidak: 'h03_check', hasil: '', cf_pakar: 0.9 },
-      { id: 'h02_g08', gejala_id: 'g08', kode_gejala: 'G08', nama_gejala: 'Apakah permukaan batang, bunga, atau buah terasa lengket seperti terkena madu?', ya: 'h02_confirmed', tidak: 'h02_g09', hasil: '', cf_pakar: 0.85 },
-      { id: 'h02_g09', gejala_id: 'g09', kode_gejala: 'G09', nama_gejala: 'Apakah jamur hitam tumbuh pada permukaan yang lengket tersebut?', ya: 'h02_confirmed', tidak: 'h02_g10', hasil: '', cf_pakar: 0.8 },
-      { id: 'h02_g10', gejala_id: 'g10', kode_gejala: 'G10', nama_gejala: 'Apakah bunga dan bakal buah menjadi layu lalu berguguran?', ya: 'h02_confirmed', tidak: 'h02_g11', hasil: '', cf_pakar: 0.75 },
-      { id: 'h02_g11', gejala_id: 'g11', kode_gejala: 'G11', nama_gejala: 'Apakah tunas muda dan bunga terlihat berkerut serta kerdil?', ya: 'h02_confirmed', tidak: 'h03_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'h02_check', gejala_id: 'g07', kode_gejala: 'G07', nama_gejala: 'Ditemukan kumpulan kutu kecil berwarna hijau atau hitam pada batang, kelopak bunga, atau sisik buah', ya: 'h02_g08', tidak: 'h03_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h02_g08', gejala_id: 'g08', kode_gejala: 'G08', nama_gejala: 'Permukaan batang, bunga, atau buah tampak lengket akibat cairan madu (honeydew)', ya: 'h02_g09_y', tidak: 'h02_g09_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'h02_g09_y', gejala_id: 'g09', kode_gejala: 'G09', nama_gejala: 'Muncul jamur jelaga hitam pada bagian yang lengket', ya: 'h02_g10', tidak: 'h02_g10_t', hasil: '', cf_pakar: 0.8 },
+      { id: 'h02_g10', gejala_id: 'g10', kode_gejala: 'G10', nama_gejala: 'Bunga dan bakal buah layu dan gugur jika serangan parah', ya: 'h02_g11', tidak: 'h02_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h02_g11', gejala_id: 'g11', kode_gejala: 'G11', nama_gejala: 'Tunas muda dan bunga tampak berkerut dan tidak berkembang normal', ya: 'h02_confirmed', tidak: 'h02_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'h02_g10_t', gejala_id: 'g10', kode_gejala: 'G10', nama_gejala: 'Bunga dan bakal buah layu dan gugur jika serangan parah (Jalur alternatif)', ya: 'h02_g11', tidak: 'h02_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h02_g09_t', gejala_id: 'g09', kode_gejala: 'G09', nama_gejala: 'Muncul jamur jelaga hitam pada bagian yang lengket (Jalur alternatif)', ya: 'h02_g10_t', tidak: 'h02_confirmed', hasil: '', cf_pakar: 0.8 },
       { id: 'h02_confirmed', gejala_id: 'h02', kode_gejala: 'H02', nama_gejala: 'Hasil: Aphids (Kutu Daun) terdeteksi!', ya: '', tidak: '', hasil: 'h02', cf_pakar: 0.95 },
 
       // H03: KUTU SISIK
-      { id: 'h03_check', gejala_id: 'g12', kode_gejala: 'G12', nama_gejala: 'Apakah terlihat kumpulan hama menempel rapat di bagian batang yang teduh (terlindung dari matahari)?', ya: 'h03_g13', tidak: 'h04_check', hasil: '', cf_pakar: 0.9 },
-      { id: 'h03_g13', gejala_id: 'g13', kode_gejala: 'G13', nama_gejala: 'Jika kumpulan hama itu disingkirkan, apakah ada bercak kecil berwarna kuning di kulit batang?', ya: 'h03_confirmed', tidak: 'h03_g14', hasil: '', cf_pakar: 0.85 },
-      { id: 'h03_g14', gejala_id: 'g14', kode_gejala: 'G14', nama_gejala: 'Apakah warna batang yang semula hijau berubah menjadi kuning pucat?', ya: 'h03_confirmed', tidak: 'h03_g15', hasil: '', cf_pakar: 0.8 },
-      { id: 'h03_g15', gejala_id: 'g15', kode_gejala: 'G15', nama_gejala: 'Apakah batang atau cabang menjadi sangat lunak, membusuk, dan berwarna coklat?', ya: 'h03_confirmed', tidak: 'h04_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'h03_check', gejala_id: 'g12', kode_gejala: 'G12', nama_gejala: 'Terlihat dompolan atau koloni hama pada sisi batang yang terlindung dari cahaya atau teduh', ya: 'h03_g13', tidak: 'h04_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h03_g13', gejala_id: 'g13', kode_gejala: 'G13', nama_gejala: 'Jika dompolan hama disingkirkan, terlihat bercak-bercak kecil dikelilingi warna kuning pada batang', ya: 'h03_g14_y', tidak: 'h03_g14_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'h03_g14_y', gejala_id: 'g14', kode_gejala: 'G14', nama_gejala: 'Warna hijau batang berubah menjadi kuning, semakin parah pada cabang yang terserang', ya: 'h03_g15', tidak: 'h03_g15_t', hasil: '', cf_pakar: 0.8 },
+      { id: 'h03_g15', gejala_id: 'g15', kode_gejala: 'G15', nama_gejala: 'Pada kerusakan sangat parah, batang atau cabang menjadi busuk, lunak, dan berwarna kuning pekat hingga coklat', ya: 'h03_confirmed', tidak: 'h03_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'h03_g15_t', gejala_id: 'g15', kode_gejala: 'G15', nama_gejala: 'Pada kerusakan sangat parah, batang atau cabang menjadi busuk, lunak, dan berwarna kuning pekat hingga coklat (Jalur alternatif)', ya: 'h03_confirmed', tidak: 'h03_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'h03_g14_t', gejala_id: 'g14', kode_gejala: 'G14', nama_gejala: 'Warna hijau batang berubah menjadi kuning (Jalur alternatif)', ya: 'h03_g15_t', tidak: 'h03_confirmed', hasil: '', cf_pakar: 0.8 },
       { id: 'h03_confirmed', gejala_id: 'h03', kode_gejala: 'H03', nama_gejala: 'Hasil: Kutu Sisik terdeteksi!', ya: '', tidak: '', hasil: 'h03', cf_pakar: 0.95 },
 
       // H04: LALAT BUAH
-      { id: 'h04_check', gejala_id: 'g16', kode_gejala: 'G16', nama_gejala: 'Apakah ada titik/lubang kecil bekas tusukan di kulit buah?', ya: 'h04_g17', tidak: 'h05_check', hasil: '', cf_pakar: 0.9 },
-      { id: 'h04_g17', gejala_id: 'g17', kode_gejala: 'G17', nama_gejala: 'Apakah ada bercak basah yang semakin hari semakin melebar di kulit buah?', ya: 'h04_confirmed', tidak: 'h04_g18', hasil: '', cf_pakar: 0.85 },
-      { id: 'h04_g18', gejala_id: 'g18', kode_gejala: 'G18', nama_gejala: 'Ketika buah dibelah, apakah ada ulat atau belatung putih di dalamnya?', ya: 'h04_confirmed', tidak: 'h04_g19', hasil: '', cf_pakar: 0.95 },
-      { id: 'h04_g19', gejala_id: 'g19', kode_gejala: 'G19', nama_gejala: 'Apakah buah menjadi busuk kemudian jatuh/gugur dari pohon?', ya: 'h04_confirmed', tidak: 'h04_g20', hasil: '', cf_pakar: 0.8 },
-      { id: 'h04_g20', gejala_id: 'g20', kode_gejala: 'G20', nama_gejala: 'Apakah bagian dalam/daging buah terlihat keropos dan berlubang?', ya: 'h04_confirmed', tidak: 'h05_check', hasil: '', cf_pakar: 0.75 },
+      { id: 'h04_check', gejala_id: 'g16', kode_gejala: 'G16', nama_gejala: 'Terdapat lubang kecil bekas tusukan pada kulit buah', ya: 'h04_g17', tidak: 'h05_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h04_g17', gejala_id: 'g17', kode_gejala: 'G17', nama_gejala: 'Terdapat bercak basah yang melebar pada permukaan buah', ya: 'h04_g18_y', tidak: 'h04_g18_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'h04_g18_y', gejala_id: 'g18', kode_gejala: 'G18', nama_gejala: 'Ditemukan ulat atau belatung berwarna putih di dalam buah jika dibelah', ya: 'h04_g19_y', tidak: 'h04_g19_t', hasil: '', cf_pakar: 0.95 },
+      { id: 'h04_g18_t', gejala_id: 'g18', kode_gejala: 'G18', nama_gejala: 'Ditemukan ulat atau belatung berwarna putih di dalam buah (Jalur alternatif)', ya: 'h04_g19_t', tidak: 'h04_g19_tr', hasil: '', cf_pakar: 0.95 },
+      { id: 'h04_g19_y', gejala_id: 'g19', kode_gejala: 'G19', nama_gejala: 'Buah busuk and gugur (sering dijumpai pada buah matang)', ya: 'h04_g20', tidak: 'h04_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'h04_g19_t', gejala_id: 'g19', kode_gejala: 'G19', nama_gejala: 'Buah busuk and gugur (Jalur alternatif 1)', ya: 'h04_g20', tidak: 'h04_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'h04_g19_tr', gejala_id: 'g19', kode_gejala: 'G19', nama_gejala: 'Buah busuk and gugur (Jalur alternatif 2)', ya: 'h04_confirmed', tidak: 'h04_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'h04_g20', gejala_id: 'g20', kode_gejala: 'G20', nama_gejala: 'Daging buah tampak kosong and berlubang-lubang', ya: 'h04_confirmed', tidak: 'h04_confirmed', hasil: '', cf_pakar: 0.75 },
       { id: 'h04_confirmed', gejala_id: 'h04', kode_gejala: 'H04', nama_gejala: 'Hasil: Lalat Buah terdeteksi!', ya: '', tidak: '', hasil: 'h04', cf_pakar: 0.95 },
 
       // H05: BEKICOT
-      { id: 'h05_check', gejala_id: 'g21', kode_gejala: 'G21', nama_gejala: 'Apakah ada bekas gigitan bergerigi di bagian pinggir atau tengah batang tanaman?', ya: 'h05_g22', tidak: 'h06_check', hasil: '', cf_pakar: 0.9 },
-      { id: 'h05_g22', gejala_id: 'g22', kode_gejala: 'G22', nama_gejala: 'Apakah Anda menemukan bekicot menempel atau berada di sekitar tanaman?', ya: 'h05_confirmed', tidak: 'h05_g23', hasil: '', cf_pakar: 0.95 },
-      { id: 'h05_g23', gejala_id: 'g23', kode_gejala: 'G23', nama_gejala: 'Apakah terlihat kotoran bekicot berwarna hitam di dekat pohon?', ya: 'h05_confirmed', tidak: 'h05_g24', hasil: '', cf_pakar: 0.85 },
-      { id: 'h05_g24', gejala_id: 'g24', kode_gejala: 'G24', nama_gejala: 'Apakah ada bekas/jejak lendir yang mengkilap keperakan di sekitar batang?', ya: 'h05_confirmed', tidak: 'h05_g25', hasil: '', cf_pakar: 0.8 },
-      { id: 'h05_g25', gejala_id: 'g25', kode_gejala: 'G25', nama_gejala: 'Apakah batang sampai berlubang besar atau rombeng karena habis dimakan?', ya: 'h05_confirmed', tidak: 'h05_g26', hasil: '', cf_pakar: 0.85 },
-      { id: 'h05_g26', gejala_id: 'g26', kode_gejala: 'G26', nama_gejala: 'Apakah tunas baru yang tumbuh menjadi rusak atau bentuknya cacat?', ya: 'h05_confirmed', tidak: 'h06_check', hasil: '', cf_pakar: 0.75 },
+      { id: 'h05_check', gejala_id: 'g21', kode_gejala: 'G21', nama_gejala: 'Terdapat bekas gigitan bergerigi di pinggir maupun tengah batang atau sulur', ya: 'h05_g22', tidak: 'h06_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'h05_g22', gejala_id: 'g22', kode_gejala: 'G22', nama_gejala: 'Ditemukan bekicot masih menempel atau berada di dekat tanaman yang diserang', ya: 'h05_g23_y', tidak: 'h05_g23_t', hasil: '', cf_pakar: 0.95 },
+      { id: 'h05_g23_y', gejala_id: 'g23', kode_gejala: 'G23', nama_gejala: 'Ditemukan kotoran bekicot berwarna hitam di sekitar tanaman', ya: 'h05_g24', tidak: 'h05_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'h05_g24', gejala_id: 'g24', kode_gejala: 'G24', nama_gejala: 'Terlihat jejak lendir mengkilap keperakan di sekitar batang', ya: 'h05_g25', tidak: 'h05_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'h05_g25', gejala_id: 'g25', kode_gejala: 'G25', nama_gejala: 'Batang berlubang besar atau habis dimakan pada serangan parah', ya: 'h05_g26', tidak: 'h05_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'h05_g26', gejala_id: 'g26', kode_gejala: 'G26', nama_gejala: 'Tunas muda rusak atau cacat', ya: 'h05_confirmed', tidak: 'h05_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h05_g23_t', gejala_id: 'g23', kode_gejala: 'G23', nama_gejala: 'Ditemukan kotoran bekicot berwarna hitam (Jalur alternatif)', ya: 'h05_confirmed', tidak: 'h05_confirmed', hasil: '', cf_pakar: 0.85 },
       { id: 'h05_confirmed', gejala_id: 'h05', kode_gejala: 'H05', nama_gejala: 'Hasil: Bekicot terdeteksi!', ya: '', tidak: '', hasil: 'h05', cf_pakar: 0.95 },
 
       // H06: BELALANG
-      { id: 'h06_check', gejala_id: 'g27', kode_gejala: 'G27', nama_gejala: 'Apakah batang muda atau tunas terlihat sobek dan berlubang?', ya: 'h06_g28', tidak: 'h07_check', hasil: '', cf_pakar: 0.85 },
-      { id: 'h06_g28', gejala_id: 'g28', kode_gejala: 'G28', nama_gejala: 'Apakah ada bekas luka berwarna coklat di permukaan batang?', ya: 'h06_confirmed', tidak: 'h06_g29', hasil: '', cf_pakar: 0.8 },
-      { id: 'h06_g29', gejala_id: 'g29', kode_gejala: 'G29', nama_gejala: 'Apakah bekas gigitan/luka tersebut terlihat mengering?', ya: 'h06_confirmed', tidak: 'h06_g30', hasil: '', cf_pakar: 0.75 },
-      { id: 'h06_g30', gejala_id: 'g30', kode_gejala: 'G30', nama_gejala: 'Apakah kulit luar batang terkelupas atau rusak dengan pola tidak teratur?', ya: 'h06_confirmed', tidak: 'h06_g31', hasil: '', cf_pakar: 0.7 },
-      { id: 'h06_g31', gejala_id: 'g31', kode_gejala: 'G31', nama_gejala: 'Apakah batang muda sampai patah atau layu dan mati?', ya: 'h06_confirmed', tidak: 'h07_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'h06_check', gejala_id: 'g27', kode_gejala: 'G27', nama_gejala: 'Batang muda atau tunas sobek dan berlubang akibat gigitan', ya: 'h06_g28', tidak: 'h07_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'h06_g28', gejala_id: 'g28', kode_gejala: 'G28', nama_gejala: 'Terdapat luka berwarna coklat pada permukaan batang', ya: 'h06_g29_y', tidak: 'h06_g29_t', hasil: '', cf_pakar: 0.8 },
+      { id: 'h06_g29_y', gejala_id: 'g29', kode_gejala: 'G29', nama_gejala: 'Bekas gigitan tampak mengering', ya: 'h06_g30', tidak: 'h06_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h06_g29_t', gejala_id: 'g29', kode_gejala: 'G29', nama_gejala: 'Bekas gigitan tampak mengering (Jalur alternatif)', ya: 'h06_g30_t', tidak: 'h06_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h06_g30', gejala_id: 'g30', kode_gejala: 'G30', nama_gejala: 'Kulit batang rusak dengan pola yang tidak beraturan', ya: 'h06_g31', tidak: 'h06_confirmed', hasil: '', cf_pakar: 0.7 },
+      { id: 'h06_g30_t', gejala_id: 'g30', kode_gejala: 'G30', nama_gejala: 'Kulit batang rusak dengan pola yang tidak beraturan (Jalur alternatif)', ya: 'h06_confirmed', tidak: 'h06_confirmed', hasil: '', cf_pakar: 0.7 },
+      { id: 'h06_g31', gejala_id: 'g31', kode_gejala: 'G31', nama_gejala: 'Batang muda patah atau mati pada serangan yang parah', ya: 'h06_confirmed', tidak: 'h06_confirmed', hasil: '', cf_pakar: 0.85 },
       { id: 'h06_confirmed', gejala_id: 'h06', kode_gejala: 'H06', nama_gejala: 'Hasil: Belalang terdeteksi!', ya: '', tidak: '', hasil: 'h06', cf_pakar: 0.95 },
 
       // H07: TUNGAU
-      { id: 'h07_check', gejala_id: 'g32', kode_gejala: 'G32', nama_gejala: 'Apakah warna hijau batang tampak memudar dan kusam?', ya: 'h07_g33', tidak: 'hama_not_found', hasil: '', cf_pakar: 0.75 },
-      { id: 'h07_g33', gejala_id: 'g33', kode_gejala: 'G33', nama_gejala: 'Apakah muncul bintik-bintik kecil berwarna kuning atau putih di permukaan batang?', ya: 'h07_confirmed', tidak: 'h07_g34', hasil: '', cf_pakar: 0.8 },
-      { id: 'h07_g34', gejala_id: 'g34', kode_gejala: 'G34', nama_gejala: 'Apakah bagian batang mengering dan berubah warna menjadi kecoklatan?', ya: 'h07_confirmed', tidak: 'h07_g35', hasil: '', cf_pakar: 0.8 },
-      { id: 'h07_g35', gejala_id: 'g35', kode_gejala: 'G35', nama_gejala: 'Apakah ada jaring-jaring halus seperti sarang laba-laba di sela-sela batang?', ya: 'h07_confirmed', tidak: 'h07_g36', hasil: '', cf_pakar: 0.85 },
-      { id: 'h07_g36', gejala_id: 'g36', kode_gejala: 'G36', nama_gejala: 'Apakah pertumbuhan tunas muda terganggu atau bentuknya tidak normal?', ya: 'h07_confirmed', tidak: 'h07_g37', hasil: '', cf_pakar: 0.8 },
-      { id: 'h07_g37', gejala_id: 'g37', kode_gejala: 'G37', nama_gejala: 'Apakah batang akhirnya mengering total lalu mati?', ya: 'h07_confirmed', tidak: 'hama_not_found', hasil: '', cf_pakar: 0.85 },
+      { id: 'h07_check', gejala_id: 'g32', kode_gejala: 'G32', nama_gejala: 'Muncul bintik-bintik kecil kuning atau putih pada permukaan batang', ya: 'h07_g33', tidak: 'hama_not_found', hasil: '', cf_pakar: 0.8 },
+      { id: 'h07_g33', gejala_id: 'g33', kode_gejala: 'G33', nama_gejala: 'Terdapat jaring-jaring halus seperti sarang laba-laba pada batang', ya: 'h07_g34_y', tidak: 'h07_g34_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'h07_g34_y', gejala_id: 'g34', kode_gejala: 'G34', nama_gejala: 'Jaringan batang mengering and berwarna kecoklatan', ya: 'h07_g35_y', tidak: 'h07_g35_t', hasil: '', cf_pakar: 0.8 },
+      { id: 'h07_g34_t', gejala_id: 'g34', kode_gejala: 'G34', nama_gejala: 'Jaringan batang mengering (Jalur alternatif)', ya: 'h07_g35_t', tidak: 'h07_g35_tr', hasil: '', cf_pakar: 0.8 },
+      { id: 'h07_g35_y', gejala_id: 'g35', kode_gejala: 'G35', nama_gejala: 'Batang terlihat kusam and warna hijau memudar', ya: 'h07_g36', tidak: 'h07_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h07_g35_t', gejala_id: 'g35', kode_gejala: 'G35', nama_gejala: 'Batang terlihat kusam (Jalur alternatif 1)', ya: 'h07_g36', tidak: 'h07_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h07_g35_tr', gejala_id: 'g35', kode_gejala: 'G35', nama_gejala: 'Batang terlihat kusam (Jalur alternatif 2)', ya: 'h07_g36', tidak: 'h07_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'h07_g36', gejala_id: 'g36', kode_gejala: 'G36', nama_gejala: 'Tunas muda tumbuh tidak normal atau bentuknya cacat', ya: 'h07_g37', tidak: 'h07_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'h07_g37', gejala_id: 'g37', kode_gejala: 'G37', nama_gejala: 'Batang mengering and mati pada serangan yang parah', ya: 'h07_confirmed', tidak: 'h07_confirmed', hasil: '', cf_pakar: 0.85 },
       { id: 'h07_confirmed', gejala_id: 'h07', kode_gejala: 'H07', nama_gejala: 'Hasil: Tungau terdeteksi!', ya: '', tidak: '', hasil: 'h07', cf_pakar: 0.95 },
-      { id: 'hama_not_found', gejala_id: 'hama_not_found', kode_gejala: 'HAMA?', nama_gejala: 'Hama tidak dapat diidentifikasi dari gejala yang diberikan. Coba konsultasikan dengan ahli.', ya: '', tidak: '', hasil: 'hama_not_found', cf_pakar: 0 },
+      { id: 'hama_not_found', gejala_id: 'hama_not_found', kode_gejala: 'HAMA?', nama_gejala: 'Hama tidak dapat diidentifikasi secara pasti dari alur pohon keputusan.', ya: '', tidak: '', hasil: 'hama_not_found', cf_pakar: 0 },
 
       // P01: KANKER BATANG DAN BUAH
-      { id: 'p01_check', gejala_id: 'g38', kode_gejala: 'G38', nama_gejala: 'Apakah muncul bintik putih kecil yang agak cekung (seperti bekas tusukan jarum) pada tunas, cabang muda, atau buah?', ya: 'p01_g39', tidak: 'p02_check', hasil: '', cf_pakar: 0.9 },
-      { id: 'p01_g39', gejala_id: 'g39', kode_gejala: 'G39', nama_gejala: 'Apakah bintik putih tersebut berubah warna menjadi coklat kemerahan?', ya: 'p01_g40', tidak: 'p01_g42', hasil: '', cf_pakar: 0.85 },
-      { id: 'p01_g40', gejala_id: 'g40', kode_gejala: 'G40', nama_gejala: 'Apakah bintik-bintik itu melebar dan menyatu menjadi bercak besar berwarna coklat kehitaman dengan tekstur kasar?', ya: 'p01_confirmed', tidak: 'p01_g41', hasil: '', cf_pakar: 0.85 },
-      { id: 'p01_g41', gejala_id: 'g41', kode_gejala: 'G41', nama_gejala: 'Apakah tunas muda menjadi layu, mengering, lalu mati?', ya: 'p01_confirmed', tidak: 'p02_check', hasil: '', cf_pakar: 0.8 },
-      { id: 'p01_g42', gejala_id: 'g42', kode_gejala: 'G42', nama_gejala: 'Apakah muncul bercak sekitar 1-2 cm yang berlubang hitam di tengahnya pada batang yang tua?', ya: 'p01_confirmed', tidak: 'p01_g43', hasil: '', cf_pakar: 0.85 },
-      { id: 'p01_g43', gejala_id: 'g43', kode_gejala: 'G43', nama_gejala: 'Apakah kulit buah menjadi kasar akibat bercak-bercak yang menyatu?', ya: 'p01_confirmed', tidak: 'p01_g44', hasil: '', cf_pakar: 0.8 },
-      { id: 'p01_g44', gejala_id: 'g44', kode_gejala: 'G44', nama_gejala: 'Apakah batang membusuk dan hancur sampai hanya tersisa serat kayu bagian dalamnya saja?', ya: 'p01_confirmed', tidak: 'p02_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_check', gejala_id: 'g38', kode_gejala: 'G38', nama_gejala: 'Muncul bintik putih kecil cekung, di tengah bintik ada seperti bekas tusukan jarum pada tunas, cabang muda, atau buah', ya: 'p01_g39', tidak: 'p02_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'p01_g39', gejala_id: 'g39', kode_gejala: 'G39', nama_gejala: 'Bintik berubah warna menjadi coklat kemerahan', ya: 'p01_g40_y', tidak: 'p01_g40_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_g40_y', gejala_id: 'g40', kode_gejala: 'G40', nama_gejala: 'Bintik-bintik menyatu menjadi bercak kuning-coklat hingga hitam dengan permukaan kasar', ya: 'p01_g41', tidak: 'p01_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_g41', gejala_id: 'g41', kode_gejala: 'G41', nama_gejala: 'Tunas muda mengering and mati (pada serangan sangat parah)', ya: 'p01_g42', tidak: 'p01_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p01_g42', gejala_id: 'g42', kode_gejala: 'G42', nama_gejala: 'Pada batang tua muncul bercak 1-2 cm dengan lubang hitam di tengahnya', ya: 'p01_g43', tidak: 'p01_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_g43', gejala_id: 'g43', kode_gejala: 'G43', nama_gejala: 'Buah terlihat kasar dengan bercak-bercak yang sudah menyatu di permukaannya', ya: 'p01_g44', tidak: 'p01_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p01_g44', gejala_id: 'g44', kode_gejala: 'G44', nama_gejala: 'Pada serangan lanjut, batang membusuk and hancur menyisakan bagian berkayu dari batang', ya: 'p01_confirmed', tidak: 'p01_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p01_g40_t', gejala_id: 'g40', kode_gejala: 'G40', nama_gejala: 'Bintik-bintik menyatu (Jalur alternatif)', ya: 'p01_confirmed', tidak: 'p01_confirmed', hasil: '', cf_pakar: 0.85 },
       { id: 'p01_confirmed', gejala_id: 'p01', kode_gejala: 'P01', nama_gejala: 'Hasil: Kanker Batang dan Buah terdeteksi!', ya: '', tidak: '', hasil: 'p01', cf_pakar: 0.95 },
 
       // P02: ANTRAKNOSA
-      { id: 'p02_check', gejala_id: 'g45', kode_gejala: 'G45', nama_gejala: 'Apakah ada bercak coklat basah yang agak cekung pada tunas atau buah yang mulai matang?', ya: 'p02_g46', tidak: 'p03_check', hasil: '', cf_pakar: 0.9 },
-      { id: 'p02_g46', gejala_id: 'g46', kode_gejala: 'G46', nama_gejala: 'Apakah bercak busuk berwarna coklat itu melebar sangat cepat (terutama saat cuaca basah/lembab)?', ya: 'p02_confirmed', tidak: 'p02_g47', hasil: '', cf_pakar: 0.85 },
-      { id: 'p02_g47', gejala_id: 'g47', kode_gejala: 'G47', nama_gejala: 'Apakah bagian bercak terasa basah dan lembek ketika ditekan?', ya: 'p02_confirmed', tidak: 'p02_g48', hasil: '', cf_pakar: 0.8 },
-      { id: 'p02_g48', gejala_id: 'g48', kode_gejala: 'G48', nama_gejala: 'Apakah muncul lapisan berwarna oranye atau merah muda di atas bercak tersebut?', ya: 'p02_confirmed', tidak: 'p02_g49', hasil: '', cf_pakar: 0.85 },
-      { id: 'p02_g49', gejala_id: 'g49', kode_gejala: 'G49', nama_gejala: 'Apakah buah membusuk seluruhnya lalu jatuh?', ya: 'p02_confirmed', tidak: 'p03_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p02_check', gejala_id: 'g45', kode_gejala: 'G45', nama_gejala: 'Muncul bercak coklat cekung basah pada tunas atau buah yang mulai masak', ya: 'p02_g46', tidak: 'p03_check', hasil: '', cf_pakar: 0.9 },
+      { id: 'p02_g46', gejala_id: 'g46', kode_gejala: 'G46', nama_gejala: 'Bercak busuk berwarna coklat melebar dengan cepat terutama saat cuaca lembab', ya: 'p02_g47_y', tidak: 'p02_g47_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'p02_g47_y', gejala_id: 'g47', kode_gejala: 'G47', nama_gejala: 'Permukaan bercak terasa basah and lunak saat ditekan', ya: 'p02_g48', tidak: 'p02_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p02_g48', gejala_id: 'g48', kode_gejala: 'G48', nama_gejala: 'Pada bercak lanjut terlihat massa spora berwarna jingga atau merah muda', ya: 'p02_g49', tidak: 'p02_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p02_g49', gejala_id: 'g49', kode_gejala: 'G49', nama_gejala: 'Buah membusuk, menjadi tidak layak konsumsi and gugur', ya: 'p02_confirmed', tidak: 'p02_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p02_g47_t', gejala_id: 'g47', kode_gejala: 'G47', nama_gejala: 'Permukaan bercak terasa basah (Jalur alternatif)', ya: 'p02_confirmed', tidak: 'p02_confirmed', hasil: '', cf_pakar: 0.8 },
       { id: 'p02_confirmed', gejala_id: 'p02', kode_gejala: 'P02', nama_gejala: 'Hasil: Antraknosa terdeteksi!', ya: '', tidak: '', hasil: 'p02', cf_pakar: 0.95 },
 
       // P03: BUSUK BATANG
-      { id: 'p03_check', gejala_id: 'g50', kode_gejala: 'G50', nama_gejala: 'Apakah sebagian batang berubah warna menjadi kuning?', ya: 'p03_g51', tidak: 'p04_check', hasil: '', cf_pakar: 0.8 },
-      { id: 'p03_g51', gejala_id: 'g51', kode_gejala: 'G51', nama_gejala: 'Apakah warna kuning kecoklatan merambat naik mengikuti arah batang?', ya: 'p03_g52', tidak: 'p03_g58', hasil: '', cf_pakar: 0.85 },
-      { id: 'p03_g52', gejala_id: 'g52', kode_gejala: 'G52', nama_gejala: 'Jika batang dipotong secara melintang, apakah bagian dalamnya berwarna coklat?', ya: 'p03_confirmed', tidak: 'p03_g53', hasil: '', cf_pakar: 0.9 },
-      { id: 'p03_g53', gejala_id: 'g53', kode_gejala: 'G53', nama_gejala: 'Apakah batang terasa lembek dan berair saat ditekan?', ya: 'p03_confirmed', tidak: 'p03_g54', hasil: '', cf_pakar: 0.85 },
-      { id: 'p03_g54', gejala_id: 'g54', kode_gejala: 'G54', nama_gejala: 'Apakah terlihat serabut jamur halus berwarna putih atau merah muda di permukaan batang?', ya: 'p03_confirmed', tidak: 'p03_g55', hasil: '', cf_pakar: 0.8 },
-      { id: 'p03_g55', gejala_id: 'g55', kode_gejala: 'G55', nama_gejala: 'Apakah batang menjadi sangat rapuh hingga mudah patah atau roboh?', ya: 'p03_confirmed', tidak: 'p03_g56', hasil: '', cf_pakar: 0.85 },
-      { id: 'p03_g56', gejala_id: 'g56', kode_gejala: 'G56', nama_gejala: 'Apakah akhirnya batang mengering keriput dan berwarna coklat gelap?', ya: 'p03_confirmed', tidak: 'p03_g57', hasil: '', cf_pakar: 0.8 },
-      { id: 'p03_g57', gejala_id: 'g57', kode_gejala: 'G57', nama_gejala: 'Apakah bagian batang yang membusuk hancur berjatuhan dan menyisakan duri/kayu tengah saja?', ya: 'p03_confirmed', tidak: 'p03_g58', hasil: '', cf_pakar: 0.85 },
-      { id: 'p03_g58', gejala_id: 'g58', kode_gejala: 'G58', nama_gejala: 'Apakah tercium bau busuk yang sangat tajam/menyengat dari batang yang sakit?', ya: 'p03_confirmed', tidak: 'p03_g59', hasil: '', cf_pakar: 0.9 },
-      { id: 'p03_g59', gejala_id: 'g59', kode_gejala: 'G59', nama_gejala: 'Apakah keluar cairan kental berwarna keruh (putih kecoklatan) dari batang?', ya: 'p03_confirmed', tidak: 'p03_g60', hasil: '', cf_pakar: 0.85 },
-      { id: 'p03_g60', gejala_id: 'g60', kode_gejala: 'G60', nama_gejala: 'Apakah kulit luar batang sangat mudah dikelupas dan bagian dalamnya sudah busuk?', ya: 'p03_confirmed', tidak: 'p03_g61', hasil: '', cf_pakar: 0.85 },
-      { id: 'p03_g61', gejala_id: 'g61', kode_gejala: 'G61', nama_gejala: 'Apakah warna batang berubah total dari hijau menjadi kuning kecoklatan hingga hitam?', ya: 'p03_confirmed', tidak: 'p04_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_check', gejala_id: 'g50', kode_gejala: 'G50', nama_gejala: 'Batang berubah warna menjadi kuning pada bagian yang terinfeksi', ya: 'p03_g51', tidak: 'p04_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_g51', gejala_id: 'g51', kode_gejala: 'G51', nama_gejala: 'Bercak coklat kekuningan meluas ke atas mengikuti arah batang', ya: 'p03_g52_y', tidak: 'p03_g52_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g52_y', gejala_id: 'g52', kode_gejala: 'G52', nama_gejala: 'Jika batang dipotong melintang, bagian dalamnya berwarna coklat', ya: 'p03_g53', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.9 },
+      { id: 'p03_g53', gejala_id: 'g53', kode_gejala: 'G53', nama_gejala: 'Batang teraba lunak and berair jika ditekan', ya: 'p03_g54', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g54', gejala_id: 'g54', kode_gejala: 'G54', nama_gejala: 'Kadang-kadang muncul benang-benang jamur putih atau merah muda pada permukaan batang saat cuaca lembab', ya: 'p03_g55', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_g55', gejala_id: 'g55', kode_gejala: 'G55', nama_gejala: 'Batang rapuh and mudah patah atau ambruk', ya: 'p03_g56', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g56', gejala_id: 'g56', kode_gejala: 'G56', nama_gejala: 'Stadium lanjut batang mengering and berwarna coklat kehitaman', ya: 'p03_g57', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_g57', gejala_id: 'g57', kode_gejala: 'G57', nama_gejala: 'Kuning lunak hancur and meninggalkan bagian berkayu yang keras', ya: 'p03_g58', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g58', gejala_id: 'g58', kode_gejala: 'G58', nama_gejala: 'Tercium bau busuk yang menyengat dari batang yang sakit', ya: 'p03_g59', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.9 },
+      { id: 'p03_g59', gejala_id: 'g59', kode_gejala: 'G59', nama_gejala: 'Keluar cairan kental berwarna putih kecoklatan dari batang', ya: 'p03_g60', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g60', gejala_id: 'g60', kode_gejala: 'G60', nama_gejala: 'Kulit batang mudah terkelupas and bagian dalamnya membusuk', ya: 'p03_g61', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p03_g61', gejala_id: 'g61', kode_gejala: 'G61', nama_gejala: 'Batang berubah warna dari hijau menjadi kuning kecoklatan hingga hitam', ya: 'p03_confirmed', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p03_g52_t', gejala_id: 'g52', kode_gejala: 'G52', nama_gejala: 'Bagian dalam berwarna coklat (Jalur alternatif)', ya: 'p03_confirmed', tidak: 'p03_confirmed', hasil: '', cf_pakar: 0.9 },
       { id: 'p03_confirmed', gejala_id: 'p03', kode_gejala: 'P03', nama_gejala: 'Hasil: Busuk Batang terdeteksi!', ya: '', tidak: '', hasil: 'p03', cf_pakar: 0.95 },
 
       // P04: KUDIS / SCAB
-      { id: 'p04_check', gejala_id: 'g62', kode_gejala: 'G62', nama_gejala: 'Apakah ada bercak kecil coklat muda yang kasar seperti koreng/kudis pada batang atau buah?', ya: 'p04_g63', tidak: 'p05_check', hasil: '', cf_pakar: 0.85 },
-      { id: 'p04_g63', gejala_id: 'g63', kode_gejala: 'G63', nama_gejala: 'Apakah bercak koreng tersebut membesar serta mengeras?', ya: 'p04_confirmed', tidak: 'p04_g64', hasil: '', cf_pakar: 0.8 },
-      { id: 'p04_g64', gejala_id: 'g64', kode_gejala: 'G64', nama_gejala: 'Apakah bagian pinggir bercak warnanya lebih tua dibandingkan bagian tengahnya?', ya: 'p04_confirmed', tidak: 'p04_g65', hasil: '', cf_pakar: 0.75 },
-      { id: 'p04_g65', gejala_id: 'g65', kode_gejala: 'G65', nama_gejala: 'Apakah bercak-bercak tersebut menyatu sehingga menutupi sebagian besar batang/buah?', ya: 'p04_confirmed', tidak: 'p04_g66', hasil: '', cf_pakar: 0.8 },
-      { id: 'p04_g66', gejala_id: 'g66', kode_gejala: 'G66', nama_gejala: 'Saat cuaca basah, apakah terlihat bintik-bintik hitam kecil di permukaan bercak?', ya: 'p04_confirmed', tidak: 'p05_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'p04_check', gejala_id: 'g62', kode_gejala: 'G62', nama_gejala: 'Muncul bercak kecil coklat muda kasar seperti koreng pada batang atau buah', ya: 'p04_g63', tidak: 'p05_check', hasil: '', cf_pakar: 0.85 },
+      { id: 'p04_g63', gejala_id: 'g63', kode_gejala: 'G63', nama_gejala: 'Bercak membesar dengan permukaan yang kering and keras', ya: 'p04_g64_y', tidak: 'p04_g64_t', hasil: '', cf_pakar: 0.8 },
+      { id: 'p04_g64_y', gejala_id: 'g64', kode_gejala: 'G64', nama_gejala: 'Pinggiran bercak berwarna lebih gelap dibanding bagian tengahnya', ya: 'p04_g65', tidak: 'p04_confirmed', hasil: '', cf_pakar: 0.75 },
+      { id: 'p04_g65', gejala_id: 'g65', kode_gejala: 'G65', nama_gejala: 'Pada serangan berat bercak menyatu and menutupi area yang luas', ya: 'p04_g66', tidak: 'p04_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p04_g66', gejala_id: 'g66', kode_gejala: 'G66', nama_gejala: 'Saat cuaca lembab terlihat titik-titik hitam kecil pada permukaan bercak', ya: 'p04_confirmed', tidak: 'p04_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p04_g64_t', gejala_id: 'g64', kode_gejala: 'G64', nama_gejala: 'Pinggiran bercak berwarna lebih gelap (Jalur alternatif)', ya: 'p04_confirmed', tidak: 'p04_confirmed', hasil: '', cf_pakar: 0.75 },
       { id: 'p04_confirmed', gejala_id: 'p04', kode_gejala: 'P04', nama_gejala: 'Hasil: Kudis / Scab terdeteksi!', ya: '', tidak: '', hasil: 'p04', cf_pakar: 0.95 },
 
       // P05: MOSAIK / BERCAK NEKROTIK
-      { id: 'p05_check', gejala_id: 'g67', kode_gejala: 'G67', nama_gejala: 'Apakah muncul bercak kecil berwarna oranye/jingga pada tunas muda?', ya: 'p05_g68', tidak: 'p06_check', hasil: '', cf_pakar: 0.8 },
-      { id: 'p05_g68', gejala_id: 'g68', kode_gejala: 'G68', nama_gejala: 'Apakah warna batang tampak belang-belang (kombinasi hijau dan kuning)?', ya: 'p05_confirmed', tidak: 'p05_g69', hasil: '', cf_pakar: 0.85 },
-      { id: 'p05_g69', gejala_id: 'g69', kode_gejala: 'G69', nama_gejala: 'Apakah terdapat bagian kulit batang tua atau kulit buah yang mati/mengering?', ya: 'p05_confirmed', tidak: 'p05_g70', hasil: '', cf_pakar: 0.8 },
-      { id: 'p05_g70', gejala_id: 'g70', kode_gejala: 'G70', nama_gejala: 'Apakah terlihat bintik-bintik pucat melingkar di batang?', ya: 'p05_confirmed', tidak: 'p05_g71', hasil: '', cf_pakar: 0.85 },
-      { id: 'p05_g71', gejala_id: 'g71', kode_gejala: 'G71', nama_gejala: 'Apakah tunas baru tumbuh melintir/tidak lurus atau bentuknya aneh?', ya: 'p05_confirmed', tidak: 'p06_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p05_check', gejala_id: 'g67', kode_gejala: 'G67', nama_gejala: 'Muncul bercak kecil di tunas muda yang berubah warna menjadi jingga', ya: 'p05_g68', tidak: 'p06_check', hasil: '', cf_pakar: 0.8 },
+      { id: 'p05_g68', gejala_id: 'g68', kode_gejala: 'G68', nama_gejala: 'Batang tampak belang-belang kuning and hijau tidak merata', ya: 'p05_g69_y', tidak: 'p05_g69_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'p05_g69_y', gejala_id: 'g69', kode_gejala: 'G69', nama_gejala: 'Ada bercak mati di batang dewasa and permukaan buah', ya: 'p05_g70', tidak: 'p05_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p05_g70', gejala_id: 'g70', kode_gejala: 'G70', nama_gejala: 'Batang menunjukkan bintik-bintik pucat and lingkaran mati', ya: 'p05_g71', tidak: 'p05_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p05_g71', gejala_id: 'g71', kode_gejala: 'G71', nama_gejala: 'Tunas baru tumbuh tidak normal and bentuknya tidak beraturan', ya: 'p05_confirmed', tidak: 'p05_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p05_g69_t', gejala_id: 'g69', kode_gejala: 'G69', nama_gejala: 'Ada bercak mati (Jalur alternatif)', ya: 'p05_confirmed', tidak: 'p05_confirmed', hasil: '', cf_pakar: 0.8 },
       { id: 'p05_confirmed', gejala_id: 'p05', kode_gejala: 'P05', nama_gejala: 'Hasil: Mosaik / Bercak Nekrotik terdeteksi!', ya: '', tidak: '', hasil: 'p05', cf_pakar: 0.95 },
 
       // P06: PURU AKAR
-      { id: 'p06_check', gejala_id: 'g72', kode_gejala: 'G72', nama_gejala: 'Jika dicabut, apakah terlihat ada benjolan/bisul (seperti kutil) pada akar?', ya: 'p06_confirmed', tidak: 'p06_g73', hasil: '', cf_pakar: 0.9 },
-      { id: 'p06_g73', gejala_id: 'g73', kode_gejala: 'G73', nama_gejala: 'Apakah jumlah akar sangat sedikit, pendek-pendek, dan tidak tumbuh subur?', ya: 'p06_confirmed', tidak: 'p06_g74', hasil: '', cf_pakar: 0.85 },
-      { id: 'p06_g74', gejala_id: 'g74', kode_gejala: 'G74', nama_gejala: 'Apakah tanaman tetap berwarna kuning pucat meskipun pemupukan/penyiraman sudah cukup?', ya: 'p06_confirmed', tidak: 'p06_g75', hasil: '', cf_pakar: 0.8 },
-      { id: 'p06_g75', gejala_id: 'g75', kode_gejala: 'G75', nama_gejala: 'Apakah tanaman tampak kerdil dan pertumbuhannya sangat lambat?', ya: 'p06_confirmed', tidak: 'p06_g76', hasil: '', cf_pakar: 0.85 },
-      { id: 'p06_g76', gejala_id: 'g76', kode_gejala: 'G76', nama_gejala: 'Apakah akar berwarna coklat tua/hitam serta mudah membusuk?', ya: 'p06_confirmed', tidak: 'penyakit_not_found', hasil: '', cf_pakar: 0.85 },
+      { id: 'p06_check', gejala_id: 'g72', kode_gejala: 'G72', nama_gejala: 'Ada benjolan atau bisul pada akar saat tanaman dicabut', ya: 'p06_g73', tidak: 'penyakit_not_found', hasil: '', cf_pakar: 0.9 },
+      { id: 'p06_g73', gejala_id: 'g73', kode_gejala: 'G73', nama_gejala: 'Akar sedikit, pendek, and tidak berkembang dengan baik', ya: 'p06_g74_y', tidak: 'p06_g74_t', hasil: '', cf_pakar: 0.85 },
+      { id: 'p06_g74_y', gejala_id: 'g74', kode_gejala: 'G74', nama_gejala: 'Batang atau daun menguning walaupun pemeliharaannya sama dengan batang yang lain', ya: 'p06_g75', tidak: 'p06_confirmed', hasil: '', cf_pakar: 0.8 },
+      { id: 'p06_g75', gejala_id: 'g75', kode_gejala: 'G75', nama_gejala: 'Tanaman tumbuh kerdil atau pertumbuhannya lambat', ya: 'p06_g76', tidak: 'p06_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p06_g76', gejala_id: 'g76', kode_gejala: 'G76', nama_gejala: 'Akar berwarna coklat kehitaman and mudah busuk', ya: 'p06_confirmed', tidak: 'p06_confirmed', hasil: '', cf_pakar: 0.85 },
+      { id: 'p06_g74_t', gejala_id: 'g74', kode_gejala: 'G74', nama_gejala: 'Batang atau daun menguning (Jalur alternatif)', ya: 'p06_confirmed', tidak: 'p06_confirmed', hasil: '', cf_pakar: 0.8 },
       { id: 'p06_confirmed', gejala_id: 'p06', kode_gejala: 'P06', nama_gejala: 'Hasil: Puru Akar terdeteksi!', ya: '', tidak: '', hasil: 'p06', cf_pakar: 0.95 },
-      { id: 'penyakit_not_found', gejala_id: 'penyakit_not_found', kode_gejala: 'PENYAKIT?', nama_gejala: 'Penyakit tidak dapat diidentifikasi dari gejala yang diberikan. Coba konsultasikan dengan ahli.', ya: '', tidak: '', hasil: 'penyakit_not_found', cf_pakar: 0 }
+      { id: 'penyakit_not_found', gejala_id: 'penyakit_not_found', kode_gejala: 'PENYAKIT?', nama_gejala: 'Penyakit tidak dapat diidentifikasi secara pasti dari alur pohon keputusan.', ya: '', tidak: '', hasil: 'penyakit_not_found', cf_pakar: 0 }
     ];
 
     // Node Positions Layout Map (GRID COORDINATES)
@@ -638,60 +696,76 @@
       // H01: Kutu Putih (Col 0, X-Center: 350)
       "h01_check": { x: 300, y: 250 },
       "h01_g02": { x: 220, y: 350 },
-      "h01_g05": { x: 380, y: 350 },
-      "h01_g03": { x: 160, y: 450 },
-      "h01_g06": { x: 380, y: 450 },
-      "h01_g04": { x: 220, y: 550 },
-      "h01_confirmed": { x: 300, y: 650 },
+      "h01_g03_y": { x: 140, y: 450 },
+      "h01_g03_t": { x: 300, y: 450 },
+      "h01_g04_y": { x: 80, y: 550 },
+      "h01_g04_t": { x: 200, y: 550 },
+      "h01_g04_tr": { x: 400, y: 550 },
+      "h01_g05": { x: 60, y: 650 },
+      "h01_g06": { x: 60, y: 750 },
+      "h01_confirmed": { x: 220, y: 850 },
 
       // H02: Aphids (Col 1, X-Center: 750)
       "h02_check": { x: 700, y: 250 },
       "h02_g08": { x: 620, y: 350 },
-      "h02_g09": { x: 620, y: 450 },
-      "h02_g10": { x: 620, y: 550 },
-      "h02_g11": { x: 620, y: 650 },
-      "h02_confirmed": { x: 700, y: 750 },
+      "h02_g09_y": { x: 540, y: 450 },
+      "h02_g09_t": { x: 700, y: 450 },
+      "h02_g10": { x: 480, y: 550 },
+      "h02_g10_t": { x: 620, y: 550 },
+      "h02_g11": { x: 480, y: 650 },
+      "h02_confirmed": { x: 620, y: 750 },
 
       // H03: Kutu Sisik (Col 2, X-Center: 1100)
       "h03_check": { x: 1100, y: 250 },
       "h03_g13": { x: 1020, y: 350 },
-      "h03_g14": { x: 1020, y: 450 },
-      "h03_g15": { x: 1020, y: 550 },
-      "h03_confirmed": { x: 1100, y: 650 },
+      "h03_g14_y": { x: 940, y: 450 },
+      "h03_g14_t": { x: 1100, y: 450 },
+      "h03_g15": { x: 880, y: 550 },
+      "h03_g15_t": { x: 1020, y: 550 },
+      "h03_confirmed": { x: 1020, y: 650 },
 
       // H04: Lalat Buah (Col 3, X-Center: 1500)
       "h04_check": { x: 1500, y: 250 },
       "h04_g17": { x: 1420, y: 350 },
-      "h04_g18": { x: 1420, y: 450 },
-      "h04_g19": { x: 1420, y: 550 },
-      "h04_g20": { x: 1420, y: 650 },
-      "h04_confirmed": { x: 1500, y: 750 },
+      "h04_g18_y": { x: 1340, y: 450 },
+      "h04_g18_t": { x: 1500, y: 450 },
+      "h04_g19_y": { x: 1260, y: 550 },
+      "h04_g19_t": { x: 1420, y: 550 },
+      "h04_g19_tr": { x: 1580, y: 550 },
+      "h04_g20": { x: 1260, y: 650 },
+      "h04_confirmed": { x: 1420, y: 750 },
 
       // H05: Bekicot (Col 4, X-Center: 1900)
       "h05_check": { x: 1900, y: 250 },
       "h05_g22": { x: 1820, y: 350 },
-      "h05_g23": { x: 1820, y: 450 },
-      "h05_g24": { x: 1820, y: 550 },
-      "h05_g25": { x: 1820, y: 650 },
-      "h05_g26": { x: 1820, y: 750 },
-      "h05_confirmed": { x: 1900, y: 850 },
+      "h05_g23_y": { x: 1740, y: 450 },
+      "h05_g23_t": { x: 1900, y: 450 },
+      "h05_g24": { x: 1740, y: 550 },
+      "h05_g25": { x: 1740, y: 650 },
+      "h05_g26": { x: 1740, y: 750 },
+      "h05_confirmed": { x: 1820, y: 850 },
 
       // H06: Belalang (Col 5, X-Center: 2300)
       "h06_check": { x: 2300, y: 250 },
       "h06_g28": { x: 2220, y: 350 },
-      "h06_g29": { x: 2220, y: 450 },
-      "h06_g30": { x: 2220, y: 550 },
-      "h06_g31": { x: 2220, y: 650 },
-      "h06_confirmed": { x: 2300, y: 750 },
+      "h06_g29_y": { x: 2140, y: 450 },
+      "h06_g29_t": { x: 2300, y: 450 },
+      "h06_g30": { x: 2060, y: 550 },
+      "h06_g30_t": { x: 2220, y: 550 },
+      "h06_g31": { x: 2060, y: 650 },
+      "h06_confirmed": { x: 2220, y: 750 },
 
       // H07: Tungau (Col 6, X-Center: 2700)
       "h07_check": { x: 2700, y: 250 },
       "h07_g33": { x: 2620, y: 350 },
-      "h07_g34": { x: 2620, y: 450 },
-      "h07_g35": { x: 2620, y: 550 },
-      "h07_g36": { x: 2620, y: 650 },
-      "h07_g37": { x: 2620, y: 750 },
-      "h07_confirmed": { x: 2700, y: 850 },
+      "h07_g34_y": { x: 2540, y: 450 },
+      "h07_g34_t": { x: 2700, y: 450 },
+      "h07_g35_y": { x: 2460, y: 550 },
+      "h07_g35_t": { x: 2620, y: 550 },
+      "h07_g35_tr": { x: 2780, y: 550 },
+      "h07_g36": { x: 2460, y: 650 },
+      "h07_g37": { x: 2460, y: 750 },
+      "h07_confirmed": { x: 2620, y: 850 },
       
       "hama_not_found": { x: 2880, y: 350 },
 
@@ -699,59 +773,65 @@
       // P01: Kanker Batang (Col 0, X-Center: 300)
       "p01_check": { x: 300, y: 250 },
       "p01_g39": { x: 300, y: 350 },
-      "p01_g40": { x: 220, y: 450 },
+      "p01_g40_y": { x: 220, y: 450 },
+      "p01_g40_t": { x: 380, y: 450 },
       "p01_g41": { x: 220, y: 550 },
-      "p01_g42": { x: 380, y: 450 },
-      "p01_g43": { x: 380, y: 550 },
-      "p01_g44": { x: 380, y: 650 },
-      "p01_confirmed": { x: 300, y: 750 },
+      "p01_g42": { x: 220, y: 650 },
+      "p01_g43": { x: 220, y: 750 },
+      "p01_g44": { x: 220, y: 850 },
+      "p01_confirmed": { x: 300, y: 950 },
 
       // P02: Antraknosa (Col 1, X-Center: 700)
       "p02_check": { x: 700, y: 250 },
       "p02_g46": { x: 620, y: 350 },
-      "p02_g47": { x: 620, y: 450 },
-      "p02_g48": { x: 620, y: 550 },
-      "p02_g49": { x: 620, y: 650 },
-      "p02_confirmed": { x: 700, y: 750 },
+      "p02_g47_y": { x: 540, y: 450 },
+      "p02_g47_t": { x: 700, y: 450 },
+      "p02_g48": { x: 540, y: 550 },
+      "p02_g49": { x: 540, y: 650 },
+      "p02_confirmed": { x: 620, y: 750 },
 
       // P03: Busuk Batang (Col 2, X-Center: 1100)
       "p03_check": { x: 1100, y: 250 },
       "p03_g51": { x: 1100, y: 350 },
-      "p03_g52": { x: 1000, y: 450 },
+      "p03_g52_y": { x: 1000, y: 450 },
+      "p03_g52_t": { x: 1200, y: 450 },
       "p03_g53": { x: 1000, y: 550 },
       "p03_g54": { x: 1000, y: 650 },
       "p03_g55": { x: 1000, y: 750 },
       "p03_g56": { x: 1000, y: 850 },
       "p03_g57": { x: 1000, y: 950 },
-      "p03_g58": { x: 1200, y: 450 },
-      "p03_g59": { x: 1200, y: 550 },
-      "p03_g60": { x: 1200, y: 650 },
-      "p03_g61": { x: 1200, y: 750 },
-      "p03_confirmed": { x: 1100, y: 1080 },
+      "p03_g58": { x: 1000, y: 1050 },
+      "p03_g59": { x: 1000, y: 1150 },
+      "p03_g60": { x: 1000, y: 1250 },
+      "p03_g61": { x: 1000, y: 1350 },
+      "p03_confirmed": { x: 1100, y: 1450 },
 
       // P04: Kudis (Col 3, X-Center: 1500)
       "p04_check": { x: 1500, y: 250 },
       "p04_g63": { x: 1420, y: 350 },
-      "p04_g64": { x: 1420, y: 450 },
-      "p04_g65": { x: 1420, y: 550 },
-      "p04_g66": { x: 1420, y: 650 },
-      "p04_confirmed": { x: 1500, y: 750 },
+      "p04_g64_y": { x: 1340, y: 450 },
+      "p04_g64_t": { x: 1500, y: 450 },
+      "p04_g65": { x: 1340, y: 550 },
+      "p04_g66": { x: 1340, y: 650 },
+      "p04_confirmed": { x: 1420, y: 750 },
 
       // P05: Mosaik (Col 4, X-Center: 1900)
       "p05_check": { x: 1900, y: 250 },
       "p05_g68": { x: 1820, y: 350 },
-      "p05_g69": { x: 1820, y: 450 },
-      "p05_g70": { x: 1820, y: 550 },
-      "p05_g71": { x: 1820, y: 650 },
-      "p05_confirmed": { x: 1900, y: 750 },
+      "p05_g69_y": { x: 1740, y: 450 },
+      "p05_g69_t": { x: 1900, y: 450 },
+      "p05_g70": { x: 1740, y: 550 },
+      "p05_g71": { x: 1740, y: 650 },
+      "p05_confirmed": { x: 1820, y: 750 },
 
       // P06: Puru Akar (Col 5, X-Center: 2300)
       "p06_check": { x: 2300, y: 250 },
       "p06_g73": { x: 2220, y: 350 },
-      "p06_g74": { x: 2220, y: 450 },
-      "p06_g75": { x: 2220, y: 550 },
-      "p06_g76": { x: 2220, y: 650 },
-      "p06_confirmed": { x: 2300, y: 750 },
+      "p06_g74_y": { x: 2140, y: 450 },
+      "p06_g74_t": { x: 2300, y: 450 },
+      "p06_g75": { x: 2140, y: 550 },
+      "p06_g76": { x: 2140, y: 650 },
+      "p06_confirmed": { x: 2220, y: 750 },
       
       "penyakit_not_found": { x: 2480, y: 350 }
     };
@@ -914,10 +994,10 @@
         maxY = 1000;
       } else if (currentTreeType === 'penyakit') {
         maxX = 2700;
-        maxY = 1200;
+        maxY = 1600;
       } else { // Combined
         maxX = 5800;
-        maxY = 1200;
+        maxY = 1600;
       }
       
       svg.setAttribute('width', maxX);
@@ -1145,9 +1225,154 @@
       document.body.removeChild(downloadLink);
     };
 
+    // ============================================================
+    // DYNAMIC DATABASE SYNCHRONIZATION (SUPABASE)
+    // ============================================================
+    const SUPABASE_URL = 'https://bkafmvhqsmjqqwssxrlv.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYWZtdmhxc21qcXF3c3N4cmx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxOTkyMDMsImV4cCI6MjA5Mzc3NTIwM30.gn-K5Tzye8n-yljeedwIfyTwtqJ9FsGNHpA2NX2vM8Q';
+    
+    let supabaseClient = null;
+    if (typeof window.supabase !== 'undefined') {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+
+    // Generate fallback positions for any nodes not defined in nodePositions
+    const generateFallbackPositions = (nodes) => {
+      const positions = { ...nodePositions };
+      const groups = {};
+      
+      nodes.forEach(n => {
+        if (n.id === 'root' || n.id === 'hama_group' || n.id === 'penyakit_group') return;
+        const match = n.id.match(/^([hp]\d{2})/);
+        if (match) {
+          const grp = match[1];
+          if (!groups[grp]) groups[grp] = [];
+          groups[grp].push(n);
+        }
+      });
+
+      for (const grp in groups) {
+        const grpNodes = groups[grp];
+        const startNode = grpNodes.find(n => n.id.endsWith('_check'));
+        if (!startNode) continue;
+
+        // BFS to assign levels and coordinates
+        const queue = [{ id: startNode.id, depth: 0, offset: 0 }];
+        const visited = new Set();
+        
+        const type = grp.charAt(0);
+        const idx = parseInt(grp.substring(1), 10);
+        const columnCenter = (idx - 1) * 400 + 300;
+
+        while (queue.length > 0) {
+          const current = queue.shift();
+          if (visited.has(current.id)) continue;
+          visited.add(current.id);
+
+          const node = grpNodes.find(n => n.id === current.id);
+          if (!node) continue;
+
+          if (!positions[node.id]) {
+            const calculatedX = columnCenter + current.offset * 85;
+            const calculatedY = 250 + current.depth * 100;
+            positions[node.id] = { x: calculatedX, y: calculatedY };
+          }
+
+          if (node.ya && grpNodes.some(n => n.id === node.ya)) {
+            queue.push({ id: node.ya, depth: current.depth + 1, offset: current.offset - 0.7 });
+          }
+          if (node.tidak && grpNodes.some(n => n.id === node.tidak)) {
+            queue.push({ id: node.tidak, depth: current.depth + 1, offset: current.offset + 0.7 });
+          }
+        }
+
+        // Catch orphan nodes
+        grpNodes.forEach(n => {
+          if (!positions[n.id]) {
+            positions[n.id] = { x: columnCenter, y: 750 };
+          }
+        });
+      }
+
+      Object.assign(nodePositions, positions);
+    };
+
+    const loadDynamicData = async () => {
+      const statusBadge = document.getElementById('sync-status');
+      if (!supabaseClient) {
+        console.warn('Supabase JS Library not loaded or available.');
+        if (statusBadge) {
+          statusBadge.className = 'sync-badge sync-fallback';
+          statusBadge.textContent = 'Mode Lokal (Offline)';
+        }
+        return;
+      }
+
+      try {
+        if (statusBadge) {
+          statusBadge.className = 'sync-badge sync-loading';
+          statusBadge.textContent = 'Sinkronisasi Database...';
+        }
+
+        const { data, error } = await supabaseClient
+          .from('pohon_keputusan')
+          .select('*')
+          .order('id');
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const formattedNodes = data.map(n => ({
+            id: n.id,
+            gejala_id: n.gejala_id,
+            kode_gejala: n.kode_gejala,
+            nama_gejala: n.nama_gejala,
+            ya: n.ya || '',
+            tidak: n.tidak || '',
+            hasil: n.hasil || '',
+            cf_pakar: parseFloat(n.cf_pakar) || 0
+          }));
+
+          // Replace rawNodes contents in-place
+          rawNodes.length = 0;
+          rawNodes.push(...formattedNodes);
+
+          // Update layouts
+          generateFallbackPositions(rawNodes);
+
+          if (statusBadge) {
+            statusBadge.className = 'sync-badge sync-success';
+            statusBadge.textContent = 'Tersinkronisasi (Supabase)';
+          }
+
+          // Re-render
+          renderTree();
+          resetZoom();
+        } else {
+          throw new Error('Data pohon kosong atau gagal diakses');
+        }
+      } catch (err) {
+        console.error('Failed to sync from database:', err);
+        if (statusBadge) {
+          statusBadge.className = 'sync-badge sync-fallback';
+          statusBadge.textContent = 'Mode Lokal (Gagal Sinkronisasi)';
+          statusBadge.title = err.message;
+        }
+      }
+    };
+
     // Init App
     window.onload = () => {
       switchTree('hama');
+      
+      // Setup dynamic db sync
+      loadDynamicData();
+      
+      // Add manual refresh click listener
+      const statusBadge = document.getElementById('sync-status');
+      if (statusBadge) {
+        statusBadge.addEventListener('click', loadDynamicData);
+      }
     };
   </script>
 </body>
