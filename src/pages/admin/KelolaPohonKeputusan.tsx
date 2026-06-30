@@ -1,8 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +37,7 @@ import {
   GitBranch,
   Loader2,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import {
   fetchPohonKeputusan,
@@ -77,6 +89,10 @@ export const KelolaPohonKeputusan = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -93,6 +109,7 @@ export const KelolaPohonKeputusan = () => {
       setNodesList(pohonData);
       setGejalaList(gejalaData);
       setPenyakitList(penyakitData);
+      setSelectedIds([]);
     } catch (err) {
       toast.error("Gagal memuat data");
       console.error(err);
@@ -212,15 +229,55 @@ export const KelolaPohonKeputusan = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus node [${id}]?`)) {
-      try {
-        await deletePohonNode(id);
-        setNodesList(nodesList.filter((n) => n.id !== id));
-        toast.success("Node berhasil dihapus");
-      } catch (err) {
-        toast.error("Gagal menghapus node");
-        console.error(err);
-      }
+    setDeleting(true);
+    try {
+      await deletePohonNode(id);
+      setNodesList(nodesList.filter((n) => n.id !== id));
+      setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
+      toast.success("Node berhasil dihapus");
+    } catch (err) {
+      toast.error("Gagal menghapus node");
+      console.error(err);
+    } finally {
+      setDeleting(false);
+      setDeleteTargetId(null);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => [
+        ...new Set([...prev, ...paginatedNodes.map((node) => node.id)]),
+      ]);
+    } else {
+      setSelectedIds((prev) =>
+        prev.filter((id) => !paginatedNodes.some((node) => node.id === id)),
+      );
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((item) => item !== id),
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setDeleting(true);
+    try {
+      await Promise.all(selectedIds.map((id) => deletePohonNode(id)));
+      setNodesList((prev) =>
+        prev.filter((node) => !selectedIds.includes(node.id)),
+      );
+      setSelectedIds([]);
+      toast.success("Node terpilih berhasil dihapus");
+    } catch (err) {
+      toast.error("Gagal menghapus node terpilih");
+      console.error(err);
+    } finally {
+      setDeleting(false);
+      setDeleteBulkConfirm(false);
     }
   };
 
@@ -354,7 +411,7 @@ export const KelolaPohonKeputusan = () => {
             Atur percabangan Ya/Tidak secara dinamis sesuai struktur pohon pakar
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <Button variant="outline" onClick={loadData} disabled={loading}>
             <RefreshCw
               className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
@@ -679,12 +736,52 @@ export const KelolaPohonKeputusan = () => {
         </CardContent>
       </Card>
 
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          {selectedIds.length > 0 ? (
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteBulkConfirm(true)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus {selectedIds.length} Terpilih
+            </Button>
+          ) : (
+            <span className="text-sm text-gray-500">
+              Pilih node untuk hapus massal
+            </span>
+          )}
+        </div>
+        <div className="text-sm text-gray-500">
+          {selectedIds.length} terpilih
+        </div>
+      </div>
+
       {/* Table List */}
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[48px] text-center">
+                  <Checkbox
+                    checked={
+                      paginatedNodes.length > 0 &&
+                      paginatedNodes.every((node) =>
+                        selectedIds.includes(node.id),
+                      )
+                        ? true
+                        : selectedIds.some((id) =>
+                              paginatedNodes.some((node) => node.id === id),
+                            )
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={(checked) =>
+                      handleSelectAll(checked === true)
+                    }
+                  />
+                </TableHead>
                 <TableHead className="w-[180px]">ID Langkah (Alur)</TableHead>
                 <TableHead className="w-[100px]">Kode Gejala</TableHead>
                 <TableHead>Pertanyaan / Deskripsi Node</TableHead>
@@ -701,7 +798,7 @@ export const KelolaPohonKeputusan = () => {
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="text-center py-20 text-gray-500"
                   >
                     <Loader2 className="w-8 h-8 animate-spin mx-auto text-pink-600 mb-2" />
@@ -711,6 +808,14 @@ export const KelolaPohonKeputusan = () => {
               ) : filteredNodes.length > 0 ? (
                 paginatedNodes.map((node) => (
                   <TableRow key={node.id} className="hover:bg-gray-50/50">
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={selectedIds.includes(node.id)}
+                        onCheckedChange={(checked) =>
+                          handleSelectRow(node.id, checked === true)
+                        }
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-sm font-semibold text-gray-800">
                       <div className="flex flex-col">
                         <span className="text-gray-900 font-bold">
@@ -841,7 +946,7 @@ export const KelolaPohonKeputusan = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(node.id)}
+                          onClick={() => setDeleteTargetId(node.id)}
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -853,7 +958,7 @@ export const KelolaPohonKeputusan = () => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="text-center py-8 text-gray-500"
                   >
                     Tidak ada data node
@@ -871,6 +976,79 @@ export const KelolaPohonKeputusan = () => {
           />
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={!!deleteTargetId}
+        onOpenChange={() => setDeleteTargetId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Hapus Node?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Node ini akan dihapus secara permanen dan tidak dapat
+              dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center gap-3">
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTargetId && handleDelete(deleteTargetId)}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteBulkConfirm} onOpenChange={setDeleteBulkConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Hapus {selectedIds.length} Node Terpilih?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Node yang dipilih akan dihapus secara permanen dan tidak dapat
+              dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center gap-3">
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Info Help */}
       <div className="bg-pink-50 rounded-xl p-4 border border-pink-100 flex gap-3">

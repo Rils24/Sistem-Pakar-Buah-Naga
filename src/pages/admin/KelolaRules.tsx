@@ -1,15 +1,25 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -17,12 +27,28 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Plus, Edit, Trash2, Search, BookOpen, GitBranch, Loader2 } from 'lucide-react';
-import { fetchRules, fetchPenyakit, fetchGejala, insertRule, updateRule, deleteRule } from '@/services/supabaseService';
-import { TablePagination } from '@/components/ui/table-pagination';
-import { toast } from 'sonner';
-import type { Rule, Penyakit, Gejala } from '@/types';
+} from "@/components/ui/table";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  BookOpen,
+  GitBranch,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
+import {
+  fetchRules,
+  fetchPenyakit,
+  fetchGejala,
+  insertRule,
+  updateRule,
+  deleteRule,
+} from "@/services/supabaseService";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { toast } from "sonner";
+import type { Rule, Penyakit, Gejala } from "@/types";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -30,14 +56,18 @@ export const KelolaRules = () => {
   const [rulesList, setRulesList] = useState<Rule[]>([]);
   const [penyakitList, setPenyakitList] = useState<Penyakit[]>([]);
   const [gejalaList, setGejalaList] = useState<Gejala[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
-  const [selectedPenyakit, setSelectedPenyakit] = useState('');
+  const [selectedPenyakit, setSelectedPenyakit] = useState("");
   const [selectedGejalaIds, setSelectedGejalaIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -49,13 +79,13 @@ export const KelolaRules = () => {
       const [rulesData, penyakitData, gejalaData] = await Promise.all([
         fetchRules(),
         fetchPenyakit(),
-        fetchGejala()
+        fetchGejala(),
       ]);
       setRulesList(rulesData);
       setPenyakitList(penyakitData);
       setGejalaList(gejalaData);
     } catch (err) {
-      toast.error('Gagal memuat data');
+      toast.error("Gagal memuat data");
       console.error(err);
     } finally {
       setLoading(false);
@@ -63,31 +93,39 @@ export const KelolaRules = () => {
   };
 
   const getPenyakitName = (id: string) => {
-    return penyakitList.find(p => p.id === id)?.nama || 'Unknown';
+    return penyakitList.find((p) => p.id === id)?.nama || "Unknown";
   };
 
   const getPenyakitKode = (id: string) => {
-    return penyakitList.find(p => p.id === id)?.kode || 'Unknown';
+    return penyakitList.find((p) => p.id === id)?.kode || "Unknown";
   };
 
   const getGejalaName = (id: string) => {
-    return gejalaList.find(g => g.id === id)?.nama || 'Unknown';
+    return gejalaList.find((g) => g.id === id)?.nama || "Unknown";
   };
 
   const getGejalaKode = (id: string) => {
-    return gejalaList.find(g => g.id === id)?.kode || 'Unknown';
+    return gejalaList.find((g) => g.id === id)?.kode || "Unknown";
   };
 
   const getGejalaCfPakar = (id: string) => {
-    return gejalaList.find(g => g.id === id)?.cf_pakar || 0;
+    return gejalaList.find((g) => g.id === id)?.cf_pakar || 0;
   };
 
-  const filteredRules = rulesList.filter(r => 
-    getPenyakitName(r.penyakit_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getPenyakitKode(r.penyakit_id).toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredRules = rulesList.filter(
+    (r) =>
+      getPenyakitName(r.penyakit_id)
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      getPenyakitKode(r.penyakit_id)
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()),
   );
 
-  const totalPages = Math.max(1, Math.ceil(filteredRules.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRules.length / ITEMS_PER_PAGE),
+  );
   const paginatedRules = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredRules.slice(start, start + ITEMS_PER_PAGE);
@@ -95,7 +133,7 @@ export const KelolaRules = () => {
 
   const handleAdd = () => {
     setEditingRule(null);
-    setSelectedPenyakit('');
+    setSelectedPenyakit("");
     setSelectedGejalaIds([]);
     setIsDialogOpen(true);
   };
@@ -108,22 +146,60 @@ export const KelolaRules = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus rule ini?')) {
-      try {
-        await deleteRule(id);
-        setRulesList(rulesList.filter(r => r.id !== id));
-        toast.success('Rule berhasil dihapus');
-      } catch (err) {
-        toast.error('Gagal menghapus rule');
-        console.error(err);
-      }
+    setDeleting(true);
+    try {
+      await deleteRule(id);
+      setRulesList(rulesList.filter((r) => r.id !== id));
+      setSelectedIds((prev) => prev.filter((selectedId) => selectedId !== id));
+      toast.success("Rule berhasil dihapus");
+    } catch (err) {
+      toast.error("Gagal menghapus rule");
+      console.error(err);
+    } finally {
+      setDeleting(false);
+      setDeleteTargetId(null);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => [
+        ...new Set([...prev, ...paginatedRules.map((r) => r.id)]),
+      ]);
+    } else {
+      setSelectedIds((prev) =>
+        prev.filter((id) => !paginatedRules.some((r) => r.id === id)),
+      );
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((item) => item !== id),
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setDeleting(true);
+    try {
+      await Promise.all(selectedIds.map((id) => deleteRule(id)));
+      setRulesList((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
+      setSelectedIds([]);
+      toast.success("Rule terpilih berhasil dihapus");
+    } catch (err) {
+      toast.error("Gagal menghapus rule terpilih");
+      console.error(err);
+    } finally {
+      setDeleting(false);
+      setDeleteBulkConfirm(false);
     }
   };
 
   const handleGejalaToggle = (gejalaId: string) => {
-    setSelectedGejalaIds(prev => {
+    setSelectedGejalaIds((prev) => {
       if (prev.includes(gejalaId)) {
-        return prev.filter(id => id !== gejalaId);
+        return prev.filter((id) => id !== gejalaId);
       } else {
         return [...prev, gejalaId];
       }
@@ -132,35 +208,37 @@ export const KelolaRules = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (selectedGejalaIds.length === 0) {
-      toast.error('Pilih minimal satu gejala');
+      toast.error("Pilih minimal satu gejala");
       return;
     }
 
     setSaving(true);
-    
+
     try {
       if (editingRule) {
         const updated = await updateRule(editingRule.id, {
           penyakit_id: selectedPenyakit,
-          gejala_ids: selectedGejalaIds
+          gejala_ids: selectedGejalaIds,
         });
-        setRulesList(rulesList.map(r => r.id === editingRule.id ? updated : r));
-        toast.success('Rule berhasil diperbarui');
+        setRulesList(
+          rulesList.map((r) => (r.id === editingRule.id ? updated : r)),
+        );
+        toast.success("Rule berhasil diperbarui");
       } else {
         const newRule: Rule = {
           id: `r${Date.now()}`,
           penyakit_id: selectedPenyakit,
-          gejala_ids: selectedGejalaIds
+          gejala_ids: selectedGejalaIds,
         };
         const inserted = await insertRule(newRule);
         setRulesList([...rulesList, inserted]);
-        toast.success('Rule berhasil ditambahkan');
+        toast.success("Rule berhasil ditambahkan");
       }
       setIsDialogOpen(false);
     } catch (err) {
-      toast.error('Gagal menyimpan rule');
+      toast.error("Gagal menyimpan rule");
       console.error(err);
     } finally {
       setSaving(false);
@@ -188,7 +266,10 @@ export const KelolaRules = () => {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={handleAdd} className="bg-pink-600 hover:bg-pink-700">
+            <Button
+              onClick={handleAdd}
+              className="bg-pink-600 hover:bg-pink-700"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Tambah Rule
             </Button>
@@ -196,7 +277,7 @@ export const KelolaRules = () => {
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingRule ? 'Edit Rule' : 'Tambah Rule Baru'}
+                {editingRule ? "Edit Rule" : "Tambah Rule Baru"}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -211,8 +292,10 @@ export const KelolaRules = () => {
                   required
                 >
                   <option value="">Pilih Penyakit</option>
-                  {penyakitList.map(p => (
-                    <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
+                  {penyakitList.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.kode} - {p.nama}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -225,16 +308,16 @@ export const KelolaRules = () => {
                 </Label>
                 <div className="border border-gray-200 rounded-lg p-4 max-h-80 overflow-y-auto">
                   <div className="space-y-2">
-                    {gejalaList.map(gejala => {
+                    {gejalaList.map((gejala) => {
                       const isSelected = selectedGejalaIds.includes(gejala.id);
-                      
+
                       return (
-                        <label 
+                        <label
                           key={gejala.id}
                           className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                            isSelected 
-                              ? 'border-pink-500 bg-pink-50' 
-                              : 'border-gray-200 hover:border-pink-300'
+                            isSelected
+                              ? "border-pink-500 bg-pink-50"
+                              : "border-gray-200 hover:border-pink-300"
                           }`}
                         >
                           <input
@@ -244,7 +327,9 @@ export const KelolaRules = () => {
                             className="w-4 h-4 text-pink-600 rounded focus:ring-pink-500"
                           />
                           <div className="flex-1">
-                            <span className="text-sm font-medium">{gejala.kode} - {gejala.nama}</span>
+                            <span className="text-sm font-medium">
+                              {gejala.kode} - {gejala.nama}
+                            </span>
                           </div>
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
                             CF: {Math.round(gejala.cf_pakar * 100)}%
@@ -262,31 +347,48 @@ export const KelolaRules = () => {
               {/* Preview Rule */}
               {selectedPenyakit && selectedGejalaIds.length > 0 && (
                 <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                  <h4 className="font-semibold text-blue-900 mb-3 text-sm">Preview Rule:</h4>
+                  <h4 className="font-semibold text-blue-900 mb-3 text-sm">
+                    Preview Rule:
+                  </h4>
                   <div className="text-sm text-blue-800 font-mono bg-white rounded-lg p-3 border border-blue-100 leading-relaxed">
-                    <span className="text-pink-600 font-bold">IF</span>{' '}
+                    <span className="text-pink-600 font-bold">IF</span>{" "}
                     {selectedGejalaIds.map((id, idx) => (
                       <span key={id}>
-                        <span className="font-semibold text-blue-700">{getGejalaKode(id)}</span>
+                        <span className="font-semibold text-blue-700">
+                          {getGejalaKode(id)}
+                        </span>
                         {idx < selectedGejalaIds.length - 1 && (
                           <span className="text-gray-400 mx-1">AND</span>
                         )}
                       </span>
-                    ))}
-                    {' '}<span className="text-pink-600 font-bold">THEN</span>{' '}
-                    <span className="font-semibold text-emerald-700">{getPenyakitKode(selectedPenyakit)}</span>
-                    <span className="text-gray-500"> — {getPenyakitName(selectedPenyakit)}</span>
+                    ))}{" "}
+                    <span className="text-pink-600 font-bold">THEN</span>{" "}
+                    <span className="font-semibold text-emerald-700">
+                      {getPenyakitKode(selectedPenyakit)}
+                    </span>
+                    <span className="text-gray-500">
+                      {" "}
+                      — {getPenyakitName(selectedPenyakit)}
+                    </span>
                   </div>
                 </div>
               )}
 
               <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Batal
                 </Button>
-                <Button type="submit" className="bg-pink-600 hover:bg-pink-700" disabled={saving}>
+                <Button
+                  type="submit"
+                  className="bg-pink-600 hover:bg-pink-700"
+                  disabled={saving}
+                >
                   {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {editingRule ? 'Simpan Perubahan' : 'Tambah Rule'}
+                  {editingRule ? "Simpan Perubahan" : "Tambah Rule"}
                 </Button>
               </div>
             </form>
@@ -302,12 +404,107 @@ export const KelolaRules = () => {
             <Input
               placeholder="Cari rule berdasarkan penyakit..."
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="pl-10"
             />
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          {selectedIds.length > 0 ? (
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteBulkConfirm(true)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus {selectedIds.length} Terpilih
+            </Button>
+          ) : (
+            <span className="text-sm text-gray-500">
+              Pilih rule untuk hapus massal
+            </span>
+          )}
+        </div>
+        <div className="text-sm text-gray-500">
+          {selectedIds.length} terpilih
+        </div>
+      </div>
+
+      <AlertDialog
+        open={!!deleteTargetId}
+        onOpenChange={() => setDeleteTargetId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Hapus Rule?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Rule ini akan dihapus dari sistem dan tidak dapat dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center gap-3">
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTargetId && handleDelete(deleteTargetId)}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteBulkConfirm} onOpenChange={setDeleteBulkConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Hapus {selectedIds.length} Rule Terpilih?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Rule yang dipilih akan dihapus secara permanen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center gap-3">
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Table */}
       <Card>
@@ -315,6 +512,17 @@ export const KelolaRules = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16">
+                  <input
+                    type="checkbox"
+                    checked={
+                      paginatedRules.length > 0 &&
+                      paginatedRules.every((r) => selectedIds.includes(r.id))
+                    }
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="h-4 w-4 text-pink-600 rounded border-gray-300"
+                  />
+                </TableHead>
                 <TableHead className="w-16">Rule</TableHead>
                 <TableHead>IF (Gejala)</TableHead>
                 <TableHead>THEN (Penyakit)</TableHead>
@@ -325,16 +533,36 @@ export const KelolaRules = () => {
               {paginatedRules.length > 0 ? (
                 paginatedRules.map((rule, index) => (
                   <TableRow key={rule.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(rule.id)}
+                        onChange={(e) =>
+                          handleSelectRow(rule.id, e.target.checked)
+                        }
+                        className="h-4 w-4 text-pink-600 rounded border-gray-300"
+                      />
+                    </TableCell>
                     <TableCell className="font-medium text-gray-500">
-                      R{String((currentPage - 1) * ITEMS_PER_PAGE + index + 1).padStart(2, '0')}
+                      R
+                      {String(
+                        (currentPage - 1) * ITEMS_PER_PAGE + index + 1,
+                      ).padStart(2, "0")}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         {rule.gejala_ids.map((gid) => (
-                          <div key={gid} className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-500">{getGejalaKode(gid)}</span>
+                          <div
+                            key={gid}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <span className="text-gray-500">
+                              {getGejalaKode(gid)}
+                            </span>
                             <span className="text-gray-400">-</span>
-                            <span className="text-gray-700">{getGejalaName(gid)}</span>
+                            <span className="text-gray-700">
+                              {getGejalaName(gid)}
+                            </span>
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-50 text-blue-600">
                               CF {Math.round(getGejalaCfPakar(gid) * 100)}%
                             </span>
@@ -346,8 +574,13 @@ export const KelolaRules = () => {
                       <div className="flex items-center gap-2">
                         <BookOpen className="w-4 h-4 text-purple-600" />
                         <div>
-                          <span className="font-medium">{getPenyakitKode(rule.penyakit_id)}</span>
-                          <span className="text-gray-500"> - {getPenyakitName(rule.penyakit_id)}</span>
+                          <span className="font-medium">
+                            {getPenyakitKode(rule.penyakit_id)}
+                          </span>
+                          <span className="text-gray-500">
+                            {" "}
+                            - {getPenyakitName(rule.penyakit_id)}
+                          </span>
                         </div>
                       </div>
                     </TableCell>
@@ -363,7 +596,7 @@ export const KelolaRules = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(rule.id)}
+                          onClick={() => setDeleteTargetId(rule.id)}
                           className="text-red-600 hover:text-red-700"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -374,7 +607,10 @@ export const KelolaRules = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                  <TableCell
+                    colSpan={5}
+                    className="text-center py-8 text-gray-500"
+                  >
                     Tidak ada data rules
                   </TableCell>
                 </TableRow>
@@ -398,14 +634,21 @@ export const KelolaRules = () => {
           Forward Chaining
         </h4>
         <p className="text-sm text-purple-700 mb-2">
-          Forward Chaining bekerja dari <strong>gejala</strong> (yang dipilih user) menuju <strong>penyakit</strong> (kesimpulan).
+          Forward Chaining bekerja dari <strong>gejala</strong> (yang dipilih
+          user) menuju <strong>penyakit</strong> (kesimpulan).
         </p>
         <div className="text-sm text-purple-600 font-mono bg-white rounded p-3">
-          <p><strong>IF</strong> Gejala A <strong>AND</strong> Gejala B <strong>AND</strong> Gejala C</p>
-          <p><strong>THEN</strong> Penyakit X</p>
+          <p>
+            <strong>IF</strong> Gejala A <strong>AND</strong> Gejala B{" "}
+            <strong>AND</strong> Gejala C
+          </p>
+          <p>
+            <strong>THEN</strong> Penyakit X
+          </p>
         </div>
         <p className="text-sm text-purple-600 mt-2">
-          CF ada di setiap gejala (cf_pakar). User menjawab Ya (CF=1) atau Tidak (CF=0). Perhitungan: CF = CF(User) × CF(Pakar/Gejala)
+          CF ada di setiap gejala (cf_pakar). User menjawab Ya (CF=1) atau Tidak
+          (CF=0). Perhitungan: CF = CF(User) × CF(Pakar/Gejala)
         </p>
       </div>
     </div>

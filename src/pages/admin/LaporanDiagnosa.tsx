@@ -1,13 +1,14 @@
-import { useEffect, useState, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useEffect, useState, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,8 +18,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { fetchHasilDiagnosa, fetchUsers, deleteHasilDiagnosa, fetchPenyakit } from '@/services/supabaseService';
+} from "@/components/ui/alert-dialog";
+import {
+  fetchHasilDiagnosa,
+  fetchUsers,
+  deleteHasilDiagnosa,
+  fetchPenyakit,
+} from "@/services/supabaseService";
 import {
   FileText,
   Search,
@@ -38,10 +44,10 @@ import {
   ImageIcon,
   ChevronLeft,
   ChevronRight,
-  X
-} from 'lucide-react';
-import { TablePagination } from '@/components/ui/table-pagination';
-import { toast } from 'sonner';
+  X,
+} from "lucide-react";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { toast } from "sonner";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -49,13 +55,15 @@ export const LaporanDiagnosa = () => {
   const [laporanList, setLaporanList] = useState<any[]>([]);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterTanggal, setFilterTanggal] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTanggal, setFilterTanggal] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [penyakitList, setPenyakitList] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
 
@@ -69,16 +77,18 @@ export const LaporanDiagnosa = () => {
       const [diagnosaData, usersData, penyakitData] = await Promise.all([
         fetchHasilDiagnosa(),
         fetchUsers(),
-        fetchPenyakit()
+        fetchPenyakit(),
       ]);
       setLaporanList(diagnosaData);
       setPenyakitList(penyakitData);
       const map: Record<string, string> = {};
-      usersData.forEach((u: any) => { map[u.id] = u.nama; });
+      usersData.forEach((u: any) => {
+        map[u.id] = u.nama;
+      });
       setUserMap(map);
     } catch (err) {
-      console.error('Gagal memuat laporan:', err);
-      toast.error('Gagal memuat data laporan');
+      console.error("Gagal memuat laporan:", err);
+      toast.error("Gagal memuat data laporan");
     } finally {
       setLoading(false);
     }
@@ -88,27 +98,78 @@ export const LaporanDiagnosa = () => {
     try {
       setDeleting(true);
       await deleteHasilDiagnosa(item.id);
-      setLaporanList(prev => prev.filter(r => r.id !== item.id));
+      setLaporanList((prev) => prev.filter((r) => r.id !== item.id));
+      setSelectedIds((prev) => prev.filter((id) => id !== item.id));
       setDeleteTarget(null);
       if (selectedItem?.id === item.id) setSelectedItem(null);
-      toast.success('Laporan berhasil dihapus');
+      toast.success("Laporan berhasil dihapus");
     } catch (err) {
-      toast.error('Gagal menghapus laporan');
+      toast.error("Gagal menghapus laporan");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds((prev) => [
+        ...new Set([...prev, ...paginatedList.map((item) => item.id)]),
+      ]);
+    } else {
+      setSelectedIds((prev) =>
+        prev.filter((id) => !paginatedList.some((item) => item.id === id)),
+      );
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked
+        ? [...new Set([...prev, id])]
+        : prev.filter((item) => item !== id),
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      setDeleting(true);
+      await Promise.all(selectedIds.map((id) => deleteHasilDiagnosa(id)));
+      setLaporanList((prev) =>
+        prev.filter((item) => !selectedIds.includes(item.id)),
+      );
+      setSelectedIds([]);
+      setDeleteBulkConfirm(false);
+      if (selectedItem && selectedIds.includes(selectedItem.id))
+        setSelectedItem(null);
+      toast.success("Laporan terpilih berhasil dihapus");
+    } catch (err) {
+      toast.error("Gagal menghapus laporan terpilih");
     } finally {
       setDeleting(false);
     }
   };
 
   // Filter data
-  const filteredList = laporanList.filter(item => {
-    const nama = (item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || '').toLowerCase();
-    const userName = (userMap[item.user_id] || '').toLowerCase();
-    const matchSearch = nama.includes(searchQuery.toLowerCase()) || userName.includes(searchQuery.toLowerCase());
-    const matchTanggal = !filterTanggal || item.tanggal?.startsWith(filterTanggal);
+  const filteredList = laporanList.filter((item) => {
+    const nama = (
+      item.nama_penyakit_terpilih ||
+      item.hasil_cf?.[0]?.nama_penyakit ||
+      ""
+    ).toLowerCase();
+    const userName = (userMap[item.user_id] || "").toLowerCase();
+    const matchSearch =
+      nama.includes(searchQuery.toLowerCase()) ||
+      userName.includes(searchQuery.toLowerCase());
+    const matchTanggal =
+      !filterTanggal || item.tanggal?.startsWith(filterTanggal);
     return matchSearch && matchTanggal;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredList.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredList.length / ITEMS_PER_PAGE),
+  );
   const paginatedList = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredList.slice(start, start + ITEMS_PER_PAGE);
@@ -116,68 +177,84 @@ export const LaporanDiagnosa = () => {
 
   // Stats
   const totalDiagnosa = laporanList.length;
-  const uniqueUsers = new Set(laporanList.map(i => i.user_id)).size;
-  const avgCF = totalDiagnosa > 0
-    ? laporanList.reduce((sum, i) => sum + (i.cf_tertinggi || 0), 0) / totalDiagnosa
-    : 0;
+  const uniqueUsers = new Set(laporanList.map((i) => i.user_id)).size;
+  const avgCF =
+    totalDiagnosa > 0
+      ? laporanList.reduce((sum, i) => sum + (i.cf_tertinggi || 0), 0) /
+        totalDiagnosa
+      : 0;
 
   // Penyakit terbanyak
   const penyakitCount: Record<string, number> = {};
-  laporanList.forEach(item => {
-    const nama = item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || 'Unknown';
+  laporanList.forEach((item) => {
+    const nama =
+      item.nama_penyakit_terpilih ||
+      item.hasil_cf?.[0]?.nama_penyakit ||
+      "Unknown";
     penyakitCount[nama] = (penyakitCount[nama] || 0) + 1;
   });
   const topPenyakit = Object.entries(penyakitCount).sort((a, b) => b[1] - a[1]);
 
   const getStatusColor = (cf: number) => {
-    if (cf >= 0.9) return 'bg-green-50 text-green-700 border-green-200';
-    if (cf >= 0.7) return 'bg-blue-50 text-blue-700 border-blue-200';
-    if (cf >= 0.5) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-    return 'bg-gray-50 text-gray-600 border-gray-200';
+    if (cf >= 0.9) return "bg-green-50 text-green-700 border-green-200";
+    if (cf >= 0.7) return "bg-blue-50 text-blue-700 border-blue-200";
+    if (cf >= 0.5) return "bg-yellow-50 text-yellow-700 border-yellow-200";
+    return "bg-gray-50 text-gray-600 border-gray-200";
   };
 
   const getCFLabel = (cf: number): string => {
-    if (cf >= 0.9) return 'Sangat Yakin';
-    if (cf >= 0.7) return 'Yakin';
-    if (cf >= 0.5) return 'Cukup Yakin';
-    if (cf >= 0.3) return 'Sedikit Yakin';
-    return 'Tidak Yakin';
+    if (cf >= 0.9) return "Sangat Yakin";
+    if (cf >= 0.7) return "Yakin";
+    if (cf >= 0.5) return "Cukup Yakin";
+    if (cf >= 0.3) return "Sedikit Yakin";
+    return "Tidak Yakin";
   };
 
   // Export CSV
   const handleExportCSV = () => {
     if (filteredList.length === 0) {
-      toast.error('Tidak ada data untuk diekspor');
+      toast.error("Tidak ada data untuk diekspor");
       return;
     }
-    const headers = ['No', 'Tanggal', 'Nama User', 'Hasil Diagnosa', 'CF (%)', 'Gejala'];
+    const headers = [
+      "No",
+      "Tanggal",
+      "Nama User",
+      "Hasil Diagnosa",
+      "CF (%)",
+      "Gejala",
+    ];
     const rows = filteredList.map((item, idx) => {
-      const gejalaNames = (item.gejala_dipilih || []).map((g: any) => g.nama_gejala).join('; ');
+      const gejalaNames = (item.gejala_dipilih || [])
+        .map((g: any) => g.nama_gejala)
+        .join("; ");
       return [
         idx + 1,
-        new Date(item.tanggal).toLocaleDateString('id-ID'),
+        new Date(item.tanggal).toLocaleDateString("id-ID"),
         userMap[item.user_id] || item.user_id,
-        item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || '-',
+        item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-",
         Math.round((item.cf_tertinggi || 0) * 100),
-        `"${gejalaNames}"`
-      ].join(',');
+        `"${gejalaNames}"`,
+      ].join(",");
     });
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `laporan_diagnosa_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Laporan berhasil diekspor');
+    toast.success("Laporan berhasil diekspor");
   };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-pink-600" />
-        <span className="text-gray-500 text-sm">Memuat laporan diagnosa...</span>
+        <span className="text-gray-500 text-sm">
+          Memuat laporan diagnosa...
+        </span>
       </div>
     );
   }
@@ -187,9 +264,7 @@ export const LaporanDiagnosa = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Laporan Diagnosa
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Laporan Diagnosa</h1>
           <p className="text-gray-400 text-sm mt-1">
             Semua hasil diagnosa dari seluruh user
           </p>
@@ -213,7 +288,9 @@ export const LaporanDiagnosa = () => {
                 <FileText className="w-5 h-5 text-pink-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{totalDiagnosa}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {totalDiagnosa}
+                </p>
                 <p className="text-xs text-gray-400">Total Diagnosa</p>
               </div>
             </div>
@@ -227,7 +304,9 @@ export const LaporanDiagnosa = () => {
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{uniqueUsers}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {uniqueUsers}
+                </p>
                 <p className="text-xs text-gray-400">User Aktif</p>
               </div>
             </div>
@@ -241,7 +320,9 @@ export const LaporanDiagnosa = () => {
                 <TrendingUp className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{Math.round(avgCF * 100)}%</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {Math.round(avgCF * 100)}%
+                </p>
                 <p className="text-xs text-gray-400">Rata-rata CF</p>
               </div>
             </div>
@@ -255,7 +336,9 @@ export const LaporanDiagnosa = () => {
                 <Bug className="w-5 h-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{topPenyakit.length}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {topPenyakit.length}
+                </p>
                 <p className="text-xs text-gray-400">Jenis Terdeteksi</p>
               </div>
             </div>
@@ -281,8 +364,12 @@ export const LaporanDiagnosa = () => {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-800 truncate">{nama}</span>
-                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">{count} kali</span>
+                      <span className="text-sm font-medium text-gray-800 truncate">
+                        {nama}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                        {count} kali
+                      </span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-2">
                       <div
@@ -305,7 +392,10 @@ export const LaporanDiagnosa = () => {
           <Input
             placeholder="Cari nama penyakit atau nama user..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-10"
           />
         </div>
@@ -314,9 +404,33 @@ export const LaporanDiagnosa = () => {
           <Input
             type="date"
             value={filterTanggal}
-            onChange={(e) => { setFilterTanggal(e.target.value); setCurrentPage(1); }}
+            onChange={(e) => {
+              setFilterTanggal(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pl-10 w-full sm:w-48"
           />
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          {selectedIds.length > 0 ? (
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteBulkConfirm(true)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Hapus {selectedIds.length} Terpilih
+            </Button>
+          ) : (
+            <span className="text-sm text-gray-500">
+              Pilih laporan untuk hapus massal
+            </span>
+          )}
+        </div>
+        <div className="text-sm text-gray-500">
+          {selectedIds.length} terpilih
         </div>
       </div>
 
@@ -328,50 +442,108 @@ export const LaporanDiagnosa = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">No</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Tanggal</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">User</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Hasil Diagnosa</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">CF</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Gejala</th>
-                    <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">Aksi</th>
+                    <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      <Checkbox
+                        checked={
+                          paginatedList.length > 0 &&
+                          paginatedList.every((item) =>
+                            selectedIds.includes(item.id),
+                          )
+                        }
+                        onCheckedChange={(checked) =>
+                          handleSelectAll(checked === true)
+                        }
+                      />
+                    </th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      No
+                    </th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      Tanggal
+                    </th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      User
+                    </th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      Hasil Diagnosa
+                    </th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      CF
+                    </th>
+                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      Gejala
+                    </th>
+                    <th className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 py-3">
+                      Aksi
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {paginatedList.map((item, index) => {
                     const cfValue = item.cf_tertinggi || 0;
-                    const penyakitName = item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || '-';
+                    const penyakitName =
+                      item.nama_penyakit_terpilih ||
+                      item.hasil_cf?.[0]?.nama_penyakit ||
+                      "-";
                     const gejalaCount = item.gejala_dipilih?.length || 0;
-                    const globalIndex = (currentPage - 1) * ITEMS_PER_PAGE + index;
+                    const globalIndex =
+                      (currentPage - 1) * ITEMS_PER_PAGE + index;
 
                     return (
-                      <tr key={item.id || index} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-5 py-3.5 text-sm text-gray-500 font-mono">{globalIndex + 1}</td>
+                      <tr
+                        key={item.id || index}
+                        className="hover:bg-gray-50/50 transition-colors"
+                      >
+                        <td className="px-5 py-3.5 text-center">
+                          <Checkbox
+                            checked={selectedIds.includes(item.id)}
+                            onCheckedChange={(checked) =>
+                              handleSelectRow(item.id, checked === true)
+                            }
+                          />
+                        </td>
+                        <td className="px-5 py-3.5 text-sm text-gray-500 font-mono">
+                          {globalIndex + 1}
+                        </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                             <span className="whitespace-nowrap">
-                              {new Date(item.tanggal).toLocaleDateString('id-ID', {
-                                day: '2-digit', month: 'short', year: 'numeric'
-                              })}
+                              {new Date(item.tanggal).toLocaleDateString(
+                                "id-ID",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
                             </span>
                           </div>
                           <p className="text-[10px] text-gray-400 mt-0.5 ml-5">
-                            {new Date(item.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(item.tanggal).toLocaleTimeString(
+                              "id-ID",
+                              { hour: "2-digit", minute: "2-digit" },
+                            )}
                           </p>
                         </td>
                         <td className="px-5 py-3.5">
                           <span className="text-sm font-medium text-gray-800">
-                            {userMap[item.user_id] || 'Unknown'}
+                            {userMap[item.user_id] || "Unknown"}
                           </span>
                         </td>
                         <td className="px-5 py-3.5">
-                          <span className="text-sm font-semibold text-gray-900">{penyakitName}</span>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {penyakitName}
+                          </span>
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-pink-600">{Math.round(cfValue * 100)}%</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${getStatusColor(cfValue)}`}>
+                            <span className="text-sm font-bold text-pink-600">
+                              {Math.round(cfValue * 100)}%
+                            </span>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${getStatusColor(cfValue)}`}
+                            >
                               {getCFLabel(cfValue)}
                             </span>
                           </div>
@@ -421,9 +593,13 @@ export const LaporanDiagnosa = () => {
               <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <FileText className="w-8 h-8 text-gray-300" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Belum Ada Laporan</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                Belum Ada Laporan
+              </h3>
               <p className="text-gray-400 text-sm">
-                {searchQuery || filterTanggal ? 'Tidak ada data yang sesuai filter.' : 'Belum ada user yang melakukan diagnosa.'}
+                {searchQuery || filterTanggal
+                  ? "Tidak ada data yang sesuai filter."
+                  : "Belum ada user yang melakukan diagnosa."}
               </p>
             </div>
           )}
@@ -450,15 +626,27 @@ export const LaporanDiagnosa = () => {
               <div className="mt-3 space-y-1">
                 <div className="flex items-center gap-2 text-pink-100 text-sm">
                   <Users className="w-4 h-4" />
-                  <span>User: <strong className="text-white">{userMap[selectedItem.user_id] || selectedItem.user_id}</strong></span>
+                  <span>
+                    User:{" "}
+                    <strong className="text-white">
+                      {userMap[selectedItem.user_id] || selectedItem.user_id}
+                    </strong>
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-pink-100 text-sm">
                   <Calendar className="w-4 h-4" />
                   <span>
-                    {new Date(selectedItem.tanggal).toLocaleDateString('id-ID', {
-                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-                      hour: '2-digit', minute: '2-digit'
-                    })}
+                    {new Date(selectedItem.tanggal).toLocaleDateString(
+                      "id-ID",
+                      {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
                   </span>
                 </div>
               </div>
@@ -470,48 +658,61 @@ export const LaporanDiagnosa = () => {
               {/* Hasil Utama */}
               <div className="flex items-center gap-6 p-5 bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl border border-pink-100">
                 <div className="flex-1">
-                  <p className="text-xs font-medium text-pink-500 uppercase tracking-wider mb-1">Hasil Diagnosa</p>
+                  <p className="text-xs font-medium text-pink-500 uppercase tracking-wider mb-1">
+                    Hasil Diagnosa
+                  </p>
                   <h3 className="text-xl font-bold text-gray-900">
-                    {selectedItem.nama_penyakit_terpilih || selectedItem.hasil_cf?.[0]?.nama_penyakit}
+                    {selectedItem.nama_penyakit_terpilih ||
+                      selectedItem.hasil_cf?.[0]?.nama_penyakit}
                   </h3>
                 </div>
                 <div className="text-center flex-shrink-0">
                   <p className="text-4xl font-extrabold text-pink-600 leading-none">
                     {Math.round((selectedItem.cf_tertinggi || 0) * 100)}%
                   </p>
-                  <span className={`mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(selectedItem.cf_tertinggi || 0)}`}>
+                  <span
+                    className={`mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(selectedItem.cf_tertinggi || 0)}`}
+                  >
                     {getCFLabel(selectedItem.cf_tertinggi || 0)}
                   </span>
                 </div>
               </div>
 
               {/* Gejala */}
-              {selectedItem.gejala_dipilih && selectedItem.gejala_dipilih.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
-                    <span className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
-                    </span>
-                    Gejala yang Teridentifikasi
-                    <span className="ml-auto text-xs text-gray-400 font-normal">
-                      {selectedItem.gejala_dipilih.length} gejala
-                    </span>
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedItem.gejala_dipilih.map((g: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <span className="w-7 h-7 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                          {idx + 1}
-                        </span>
-                        <span className="text-sm text-gray-700 flex-1">{g.nama_gejala}</span>
-                        <span className="text-[10px] text-gray-400 font-mono bg-white px-2 py-0.5 rounded border border-gray-100">
-                          CF Pakar: {g.cf_pakar}
-                        </span>
-                      </div>
-                    ))}
+              {selectedItem.gejala_dipilih &&
+                selectedItem.gejala_dipilih.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                      <span className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
+                      </span>
+                      Gejala yang Teridentifikasi
+                      <span className="ml-auto text-xs text-gray-400 font-normal">
+                        {selectedItem.gejala_dipilih.length} gejala
+                      </span>
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedItem.gejala_dipilih.map(
+                        (g: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
+                          >
+                            <span className="w-7 h-7 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="text-sm text-gray-700 flex-1">
+                              {g.nama_gejala}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-mono bg-white px-2 py-0.5 rounded border border-gray-100">
+                              CF Pakar: {g.cf_pakar}
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Semua Hasil CF */}
               {selectedItem.hasil_cf && selectedItem.hasil_cf.length > 1 && (
@@ -529,26 +730,43 @@ export const LaporanDiagnosa = () => {
                     {[...selectedItem.hasil_cf]
                       .sort((a: any, b: any) => b.cf_value - a.cf_value)
                       .map((r: any, idx: number) => (
-                        <div key={r.penyakit_id || idx} className={`rounded-xl p-3 border ${
-                          idx === 0 ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-100'
-                        }`}>
+                        <div
+                          key={r.penyakit_id || idx}
+                          className={`rounded-xl p-3 border ${
+                            idx === 0
+                              ? "bg-pink-50 border-pink-200"
+                              : "bg-gray-50 border-gray-100"
+                          }`}
+                        >
                           <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
-                              idx === 0 ? 'bg-pink-500' : 'bg-gray-400'
-                            }`}>{idx + 1}</span>
+                            <span
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
+                                idx === 0 ? "bg-pink-500" : "bg-gray-400"
+                              }`}
+                            >
+                              {idx + 1}
+                            </span>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-2">
-                                <span className={`font-medium text-sm ${idx === 0 ? 'text-pink-900' : 'text-gray-700'}`}>
+                                <span
+                                  className={`font-medium text-sm ${idx === 0 ? "text-pink-900" : "text-gray-700"}`}
+                                >
                                   {r.nama_penyakit}
                                 </span>
-                                <span className={`text-sm font-bold flex-shrink-0 ${idx === 0 ? 'text-pink-600' : 'text-gray-500'}`}>
-                                  {r.persentase || Math.round((r.cf_value || 0) * 100)}%
+                                <span
+                                  className={`text-sm font-bold flex-shrink-0 ${idx === 0 ? "text-pink-600" : "text-gray-500"}`}
+                                >
+                                  {r.persentase ||
+                                    Math.round((r.cf_value || 0) * 100)}
+                                  %
                                 </span>
                               </div>
                               <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
                                 <div
-                                  className={`h-1.5 rounded-full ${idx === 0 ? 'bg-gradient-to-r from-pink-400 to-rose-500' : 'bg-gray-400'}`}
-                                  style={{ width: `${r.persentase || Math.round((r.cf_value || 0) * 100)}%` }}
+                                  className={`h-1.5 rounded-full ${idx === 0 ? "bg-gradient-to-r from-pink-400 to-rose-500" : "bg-gray-400"}`}
+                                  style={{
+                                    width: `${r.persentase || Math.round((r.cf_value || 0) * 100)}%`,
+                                  }}
                                 />
                               </div>
                             </div>
@@ -570,11 +788,16 @@ export const LaporanDiagnosa = () => {
                   </h4>
                   <div className="space-y-2">
                     {selectedItem.solusi.map((s: string, idx: number) => (
-                      <div key={idx} className="flex items-start gap-3 p-3 bg-emerald-50/60 rounded-xl border border-emerald-100">
+                      <div
+                        key={idx}
+                        className="flex items-start gap-3 p-3 bg-emerald-50/60 rounded-xl border border-emerald-100"
+                      >
                         <span className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
-                        <p className="text-sm text-gray-700 leading-relaxed">{s}</p>
+                        <p className="text-sm text-gray-700 leading-relaxed">
+                          {s}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -584,7 +807,9 @@ export const LaporanDiagnosa = () => {
               {/* Gambar Penyakit dari database */}
               {(() => {
                 const penyakitId = selectedItem?.penyakit_terpilih;
-                const penyakit = penyakitList.find((p: any) => p.id === penyakitId);
+                const penyakit = penyakitList.find(
+                  (p: any) => p.id === penyakitId,
+                );
                 if (!penyakit?.image_urls?.length) return null;
                 return (
                   <div>
@@ -593,14 +818,25 @@ export const LaporanDiagnosa = () => {
                         <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
                       </span>
                       Gambar Penyakit
-                      <span className="ml-auto text-xs text-gray-400 font-normal">{penyakit.image_urls.length} gambar</span>
+                      <span className="ml-auto text-xs text-gray-400 font-normal">
+                        {penyakit.image_urls.length} gambar
+                      </span>
                     </h4>
                     <div className="grid grid-cols-3 gap-2">
                       {penyakit.image_urls.map((url: string, idx: number) => (
-                        <button key={idx}
-                          onClick={() => { setPreviewImages(penyakit.image_urls); setPreviewIndex(idx); }}
-                          className="relative group aspect-[4/3] rounded-lg overflow-hidden border border-gray-200 hover:border-pink-300 transition-all">
-                          <img src={url} alt={`${penyakit.nama} - ${idx+1}`} className="w-full h-full object-cover" />
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setPreviewImages(penyakit.image_urls);
+                            setPreviewIndex(idx);
+                          }}
+                          className="relative group aspect-[4/3] rounded-lg overflow-hidden border border-gray-200 hover:border-pink-300 transition-all"
+                        >
+                          <img
+                            src={url}
+                            alt={`${penyakit.nama} - ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <Eye className="w-4 h-4 text-white" />
                           </div>
@@ -634,16 +870,23 @@ export const LaporanDiagnosa = () => {
       {/* ============================================================ */}
       {/* DELETE CONFIRMATION */}
       {/* ============================================================ */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={() => setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
-            <AlertDialogTitle className="text-center">Hapus Laporan Diagnosa?</AlertDialogTitle>
+            <AlertDialogTitle className="text-center">
+              Hapus Laporan Diagnosa?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              Laporan diagnosa <strong>{deleteTarget?.nama_penyakit_terpilih}</strong> dari user{' '}
-              <strong>{userMap[deleteTarget?.user_id] || 'Unknown'}</strong> akan dihapus permanen.
+              Laporan diagnosa{" "}
+              <strong>{deleteTarget?.nama_penyakit_terpilih}</strong> dari user{" "}
+              <strong>{userMap[deleteTarget?.user_id] || "Unknown"}</strong>{" "}
+              akan dihapus permanen.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-center gap-3">
@@ -654,9 +897,51 @@ export const LaporanDiagnosa = () => {
               className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...</>
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...
+                </>
               ) : (
-                <><Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus</>
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteBulkConfirm}
+        onOpenChange={() => setDeleteBulkConfirm(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Hapus Laporan Terpilih?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              {selectedIds.length} laporan diagnosa akan dihapus secara
+              permanen. Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center gap-3">
+            <AlertDialogCancel disabled={deleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus Semua
+                </>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -665,20 +950,50 @@ export const LaporanDiagnosa = () => {
 
       {/* Image Preview Modal */}
       {previewImages.length > 0 && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewImages([])}>
-          <div className="relative max-w-3xl max-h-[85vh] w-full flex flex-col items-center" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setPreviewImages([])}
-              className="absolute -top-3 -right-3 z-10 p-2 bg-white rounded-full shadow-lg text-gray-600 hover:text-gray-900 cursor-pointer">
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setPreviewImages([])}
+        >
+          <div
+            className="relative max-w-3xl max-h-[85vh] w-full flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPreviewImages([])}
+              className="absolute -top-3 -right-3 z-10 p-2 bg-white rounded-full shadow-lg text-gray-600 hover:text-gray-900 cursor-pointer"
+            >
               <X className="w-5 h-5" />
             </button>
-            <img src={previewImages[previewIndex]} alt="Preview" className="max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl" />
+            <img
+              src={previewImages[previewIndex]}
+              alt="Preview"
+              className="max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl"
+            />
             {previewImages.length > 1 && (
               <div className="flex items-center gap-4 mt-4">
-                <button onClick={() => setPreviewIndex(i => i > 0 ? i-1 : previewImages.length-1)}
-                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"><ChevronLeft className="w-5 h-5" /></button>
-                <span className="text-white text-sm font-medium">{previewIndex + 1} / {previewImages.length}</span>
-                <button onClick={() => setPreviewIndex(i => i < previewImages.length-1 ? i+1 : 0)}
-                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"><ChevronRight className="w-5 h-5" /></button>
+                <button
+                  onClick={() =>
+                    setPreviewIndex((i) =>
+                      i > 0 ? i - 1 : previewImages.length - 1,
+                    )
+                  }
+                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-white text-sm font-medium">
+                  {previewIndex + 1} / {previewImages.length}
+                </span>
+                <button
+                  onClick={() =>
+                    setPreviewIndex((i) =>
+                      i < previewImages.length - 1 ? i + 1 : 0,
+                    )
+                  }
+                  className="p-2 bg-white/90 rounded-full hover:bg-white shadow-lg cursor-pointer"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               </div>
             )}
           </div>
