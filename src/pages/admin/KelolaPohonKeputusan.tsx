@@ -1,15 +1,15 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -17,8 +17,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Plus, Edit, Trash2, Search, GitBranch, Loader2, RefreshCw } from 'lucide-react';
+} from "@/components/ui/table";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  GitBranch,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import {
   fetchPohonKeputusan,
   fetchGejala,
@@ -26,10 +34,10 @@ import {
   insertPohonNode,
   updatePohonNode,
   deletePohonNode,
-} from '@/services/supabaseService';
-import { TablePagination } from '@/components/ui/table-pagination';
-import { toast } from 'sonner';
-import type { Gejala, Penyakit } from '@/types';
+} from "@/services/supabaseService";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { toast } from "sonner";
+import type { Gejala, Penyakit } from "@/types";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -49,21 +57,21 @@ export const KelolaPohonKeputusan = () => {
   const [nodesList, setNodesList] = useState<PohonNode[]>([]);
   const [gejalaList, setGejalaList] = useState<Gejala[]>([]);
   const [penyakitList, setPenyakitList] = useState<Penyakit[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<PohonNode | null>(null);
-  
+
   // Form States
   const [formData, setFormData] = useState({
-    id: '',
-    gejala_id: '',
-    kode_gejala: '',
-    nama_gejala: '',
-    deskripsi: '',
-    ya: '',
-    tidak: '',
-    hasil: '',
+    id: "",
+    gejala_id: "",
+    kode_gejala: "",
+    nama_gejala: "",
+    deskripsi: "",
+    ya: "",
+    tidak: "",
+    hasil: "",
     cf_pakar: 0.8,
   });
 
@@ -80,13 +88,13 @@ export const KelolaPohonKeputusan = () => {
       const [pohonData, gejalaData, penyakitData] = await Promise.all([
         fetchPohonKeputusan(),
         fetchGejala(),
-        fetchPenyakit()
+        fetchPenyakit(),
       ]);
       setNodesList(pohonData);
       setGejalaList(gejalaData);
       setPenyakitList(penyakitData);
     } catch (err) {
-      toast.error('Gagal memuat data');
+      toast.error("Gagal memuat data");
       console.error(err);
     } finally {
       setLoading(false);
@@ -94,69 +102,94 @@ export const KelolaPohonKeputusan = () => {
   };
 
   const getNodeLabel = (nodeId: string | null): string => {
-    if (!nodeId) return 'Selesai';
-    const targetNode = nodesList.find(n => n.id === nodeId);
-    if (!targetNode) return `[${nodeId}]`;
+    if (!nodeId) return "Selesai";
+    const targetNode = nodesList.find((n) => n.id === nodeId);
+    if (!targetNode) {
+      if (nodeId === "hama_not_found") return "Hama Tidak Teridentifikasi";
+      if (nodeId === "penyakit_not_found")
+        return "Penyakit Tidak Teridentifikasi";
+      return `[${nodeId}]`;
+    }
 
     if (targetNode.hasil) {
-      const penyakit = penyakitList.find(p => p.id === targetNode.hasil);
-      return penyakit 
-        ? `Hasil: ${penyakit.kode} - ${penyakit.nama}`
-        : targetNode.hasil === 'hama_not_found'
-        ? 'Hasil: Hama Tidak Teridentifikasi'
-        : targetNode.hasil === 'penyakit_not_found'
-        ? 'Hasil: Penyakit Tidak Teridentifikasi'
-        : `Hasil: ${targetNode.hasil.toUpperCase()}`;
+      const penyakit = penyakitList.find((p) => p.id === targetNode.hasil);
+      return penyakit
+        ? `Hasil: ${penyakit.nama}`
+        : targetNode.hasil === "hama_not_found"
+          ? "Hasil: Hama Tidak Teridentifikasi"
+          : targetNode.hasil === "penyakit_not_found"
+            ? "Hasil: Penyakit Tidak Teridentifikasi"
+            : `Hasil: ${targetNode.hasil.toUpperCase()}`;
     }
 
     if (targetNode.kode_gejala) {
-      return `${targetNode.kode_gejala} - ${targetNode.nama_gejala || ''}`;
+      return `Cek ${targetNode.kode_gejala}: ${targetNode.nama_gejala || ""}`;
     }
 
-    if (targetNode.id === 'hama_group') return 'Grup Hama (Transisi)';
-    if (targetNode.id === 'penyakit_group') return 'Grup Penyakit (Transisi)';
+    if (targetNode.id === "hama_group") return "Grup Hama";
+    if (targetNode.id === "penyakit_group") return "Grup Penyakit";
+
+    if (targetNode.id.endsWith("_check")) {
+      const penyakitId = targetNode.id.replace("_check", "");
+      const penyakit = penyakitList.find((p) => p.id === penyakitId);
+      return penyakit
+        ? `Mulai Cek ${penyakit.nama}`
+        : `Mulai Cek ${penyakitId.toUpperCase()}`;
+    }
+
+    if (targetNode.id.endsWith("_confirmed")) {
+      const penyakitId = targetNode.id.replace("_confirmed", "");
+      const penyakit = penyakitList.find((p) => p.id === penyakitId);
+      return penyakit ? `Hasil Akhir: ${penyakit.nama}` : "Hasil Akhir";
+    }
 
     return targetNode.id;
   };
 
   const getNodeTypeLabel = (nodeId: string): string => {
-    if (nodeId === 'root') return 'Mulai Diagnosa (Root)';
-    if (nodeId === 'hama_group') return 'Kelompok Hama (Transisi)';
-    if (nodeId === 'penyakit_group') return 'Kelompok Penyakit (Transisi)';
+    if (nodeId === "root") return "Mulai Diagnosa";
+    if (nodeId === "hama_group") return "Grup Hama";
+    if (nodeId === "penyakit_group") return "Grup Penyakit";
 
-    if (nodeId.endsWith('_check')) {
-      const penyakitId = nodeId.replace('_check', '');
-      const penyakit = penyakitList.find(p => p.id === penyakitId);
-      return penyakit ? `Mulai Cek ${penyakit.kode} (${penyakit.nama})` : `Mulai Cek ${penyakitId.toUpperCase()}`;
+    if (nodeId.endsWith("_check")) {
+      const penyakitId = nodeId.replace("_check", "");
+      const penyakit = penyakitList.find((p) => p.id === penyakitId);
+      return penyakit
+        ? `Cek ${penyakit.nama}`
+        : `Cek ${penyakitId.toUpperCase()}`;
     }
 
-    if (nodeId.endsWith('_confirmed')) {
-      const penyakitId = nodeId.replace('_confirmed', '');
-      const penyakit = penyakitList.find(p => p.id === penyakitId);
-      return penyakit ? `Hasil Akhir: ${penyakit.nama}` : `Hasil Akhir`;
+    if (nodeId.endsWith("_confirmed")) {
+      const penyakitId = nodeId.replace("_confirmed", "");
+      const penyakit = penyakitList.find((p) => p.id === penyakitId);
+      return penyakit ? `Hasil Akhir: ${penyakit.nama}` : "Hasil Akhir";
     }
 
-    // Gejala check, e.g., h01_g02 -> Cek Gejala G02
-    const match = nodeId.match(/^([a-z0-9]+)_(g[0-9]+)$/);
+    const match = nodeId.match(/^([a-z0-9]+)_(g[0-9]+)(?:_(y|t|tr))?$/);
     if (match) {
       const kodeGejala = match[2].toUpperCase();
-      return `Langkah Tanya ${kodeGejala}`;
+      const suffix = match[3];
+      if (suffix === "y") return `Langkah ${kodeGejala} (jalur YA)`;
+      if (suffix === "t") return `Langkah ${kodeGejala} (jalur TIDAK)`;
+      if (suffix === "tr")
+        return `Langkah ${kodeGejala} (jalur TIDAK alternatif)`;
+      return `Langkah ${kodeGejala}`;
     }
 
-    return `Langkah [${nodeId}]`;
+    return `Langkah ${nodeId}`;
   };
 
   const handleAdd = () => {
     setEditingNode(null);
     setFormData({
-      id: '',
-      gejala_id: '',
-      kode_gejala: '',
-      nama_gejala: '',
-      deskripsi: '',
-      ya: '',
-      tidak: '',
-      hasil: '',
+      id: "",
+      gejala_id: "",
+      kode_gejala: "",
+      nama_gejala: "",
+      deskripsi: "",
+      ya: "",
+      tidak: "",
+      hasil: "",
       cf_pakar: 0.8,
     });
     setIsDialogOpen(true);
@@ -166,13 +199,13 @@ export const KelolaPohonKeputusan = () => {
     setEditingNode(node);
     setFormData({
       id: node.id,
-      gejala_id: node.gejala_id || '',
-      kode_gejala: node.kode_gejala || '',
-      nama_gejala: node.nama_gejala || '',
-      deskripsi: node.deskripsi || '',
-      ya: node.ya || '',
-      tidak: node.tidak || '',
-      hasil: node.hasil || '',
+      gejala_id: node.gejala_id || "",
+      kode_gejala: node.kode_gejala || "",
+      nama_gejala: node.nama_gejala || "",
+      deskripsi: node.deskripsi || "",
+      ya: node.ya || "",
+      tidak: node.tidak || "",
+      hasil: node.hasil || "",
       cf_pakar: node.cf_pakar,
     });
     setIsDialogOpen(true);
@@ -182,10 +215,10 @@ export const KelolaPohonKeputusan = () => {
     if (confirm(`Apakah Anda yakin ingin menghapus node [${id}]?`)) {
       try {
         await deletePohonNode(id);
-        setNodesList(nodesList.filter(n => n.id !== id));
-        toast.success('Node berhasil dihapus');
+        setNodesList(nodesList.filter((n) => n.id !== id));
+        toast.success("Node berhasil dihapus");
       } catch (err) {
-        toast.error('Gagal menghapus node');
+        toast.error("Gagal menghapus node");
         console.error(err);
       }
     }
@@ -193,45 +226,45 @@ export const KelolaPohonKeputusan = () => {
 
   const handleGejalaChange = (gejalaId: string) => {
     if (!gejalaId) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        gejala_id: '',
-        kode_gejala: '',
-        nama_gejala: ''
+        gejala_id: "",
+        kode_gejala: "",
+        nama_gejala: "",
       }));
       return;
     }
 
-    const selectedGejala = gejalaList.find(g => g.id === gejalaId);
+    const selectedGejala = gejalaList.find((g) => g.id === gejalaId);
     if (selectedGejala) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         gejala_id: selectedGejala.id,
         kode_gejala: selectedGejala.kode,
         nama_gejala: selectedGejala.nama,
-        cf_pakar: selectedGejala.cf_pakar
+        cf_pakar: selectedGejala.cf_pakar,
       }));
     }
   };
 
   const handleHasilChange = (hasilVal: string) => {
     if (!hasilVal) {
-      setFormData(prev => ({ ...prev, hasil: '' }));
+      setFormData((prev) => ({ ...prev, hasil: "" }));
       return;
     }
 
-    const selectedPenyakit = penyakitList.find(p => p.id === hasilVal);
-    setFormData(prev => ({
+    const selectedPenyakit = penyakitList.find((p) => p.id === hasilVal);
+    setFormData((prev) => ({
       ...prev,
       hasil: hasilVal,
       // Jika terminal node hasil, nama node-nya disesuaikan
-      nama_gejala: selectedPenyakit 
+      nama_gejala: selectedPenyakit
         ? `Hasil: ${selectedPenyakit.nama} terdeteksi!`
-        : hasilVal === 'hama_not_found'
-        ? 'Hama tidak dapat diidentifikasi.'
-        : hasilVal === 'penyakit_not_found'
-        ? 'Penyakit tidak dapat diidentifikasi.'
-        : prev.nama_gejala
+        : hasilVal === "hama_not_found"
+          ? "Hama tidak dapat diidentifikasi."
+          : hasilVal === "penyakit_not_found"
+            ? "Penyakit tidak dapat diidentifikasi."
+            : prev.nama_gejala,
     }));
   };
 
@@ -239,13 +272,17 @@ export const KelolaPohonKeputusan = () => {
     e.preventDefault();
 
     if (!formData.id) {
-      toast.error('ID Node harus diisi');
+      toast.error("ID Node harus diisi");
       return;
     }
 
     setSaving(true);
-    const matchedGejala = formData.gejala_id ? gejalaList.find(g => g.id === formData.gejala_id) : null;
-    const finalCfPakar = matchedGejala ? matchedGejala.cf_pakar : (parseFloat(String(formData.cf_pakar)) || 0);
+    const matchedGejala = formData.gejala_id
+      ? gejalaList.find((g) => g.id === formData.gejala_id)
+      : null;
+    const finalCfPakar = matchedGejala
+      ? matchedGejala.cf_pakar
+      : parseFloat(String(formData.cf_pakar)) || 0;
 
     const payload = {
       id: formData.id,
@@ -262,36 +299,44 @@ export const KelolaPohonKeputusan = () => {
     try {
       if (editingNode) {
         const updated = await updatePohonNode(editingNode.id, payload);
-        setNodesList(nodesList.map(n => n.id === editingNode.id ? updated : n));
-        toast.success('Node berhasil diperbarui');
+        setNodesList(
+          nodesList.map((n) => (n.id === editingNode.id ? updated : n)),
+        );
+        toast.success("Node berhasil diperbarui");
       } else {
         // Cek jika ID sudah ada
-        if (nodesList.some(n => n.id === payload.id)) {
-          toast.error('ID Node sudah digunakan');
+        if (nodesList.some((n) => n.id === payload.id)) {
+          toast.error("ID Node sudah digunakan");
           setSaving(false);
           return;
         }
         const inserted = await insertPohonNode(payload);
         setNodesList([...nodesList, inserted]);
-        toast.success('Node berhasil ditambahkan');
+        toast.success("Node berhasil ditambahkan");
       }
       setIsDialogOpen(false);
     } catch (err) {
-      toast.error('Gagal menyimpan data');
+      toast.error("Gagal menyimpan data");
       console.error(err);
     } finally {
       setSaving(false);
     }
   };
 
-  const filteredNodes = nodesList.filter(n =>
-    n.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (n.kode_gejala && n.kode_gejala.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (n.nama_gejala && n.nama_gejala.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (n.hasil && n.hasil.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredNodes = nodesList.filter(
+    (n) =>
+      n.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (n.kode_gejala &&
+        n.kode_gejala.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (n.nama_gejala &&
+        n.nama_gejala.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (n.hasil && n.hasil.toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
-  const totalPages = Math.max(1, Math.ceil(filteredNodes.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredNodes.length / ITEMS_PER_PAGE),
+  );
   const paginatedNodes = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredNodes.slice(start, start + ITEMS_PER_PAGE);
@@ -302,19 +347,26 @@ export const KelolaPohonKeputusan = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kelola Pohon Keputusan</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Kelola Pohon Keputusan
+          </h1>
           <p className="text-gray-500">
             Atur percabangan Ya/Tidak secara dinamis sesuai struktur pohon pakar
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={loadData} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleAdd} className="bg-pink-600 hover:bg-pink-700">
+              <Button
+                onClick={handleAdd}
+                className="bg-pink-600 hover:bg-pink-700"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Tambah Node
               </Button>
@@ -322,18 +374,24 @@ export const KelolaPohonKeputusan = () => {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
-                  {editingNode ? `Edit Node [${editingNode.id}]` : 'Tambah Node Baru'}
+                  {editingNode
+                    ? `Edit Node [${editingNode.id}]`
+                    : "Tambah Node Baru"}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* ID Node */}
                 <div className="space-y-1">
-                  <Label htmlFor="node_id">ID Node (Unik, misal: h01_g02)</Label>
+                  <Label htmlFor="node_id">
+                    ID Node (Unik, misal: h01_g02)
+                  </Label>
                   <Input
                     id="node_id"
                     placeholder="Masukkan ID Node unik"
                     value={formData.id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, id: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, id: e.target.value }))
+                    }
                     disabled={!!editingNode}
                     required
                   />
@@ -341,85 +399,122 @@ export const KelolaPohonKeputusan = () => {
 
                 {/* Pilih Gejala (jika ada) */}
                 <div className="space-y-1">
-                  <Label htmlFor="gejala">Hubungkan dengan Gejala (Opsional)</Label>
+                  <Label htmlFor="gejala">
+                    Hubungkan dengan Gejala (Opsional)
+                  </Label>
                   <select
                     id="gejala"
                     value={formData.gejala_id}
                     onChange={(e) => handleGejalaChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                   >
-                    <option value="">-- Bukan Node Gejala (Misal: Root / Group Node) --</option>
-                    {gejalaList.map(g => (
-                      <option key={g.id} value={g.id}>{g.kode} - {g.nama}</option>
+                    <option value="">
+                      -- Bukan Node Gejala (Misal: Root / Group Node) --
+                    </option>
+                    {gejalaList.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.kode} - {g.nama}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 {/* Nama/Teks Pertanyaan */}
                 <div className="space-y-1">
-                  <Label htmlFor="nama_gejala">Teks Pertanyaan / Keterangan Node</Label>
+                  <Label htmlFor="nama_gejala">
+                    Teks Pertanyaan / Keterangan Node
+                  </Label>
                   <Input
                     id="nama_gejala"
                     placeholder="Apakah tanaman mengalami gejala X?"
                     value={formData.nama_gejala}
-                    onChange={(e) => setFormData(prev => ({ ...prev, nama_gejala: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        nama_gejala: e.target.value,
+                      }))
+                    }
                     required
                   />
                 </div>
 
                 {/* Deskripsi */}
                 <div className="space-y-1">
-                  <Label htmlFor="deskripsi">Deskripsi Singkat (Opsional)</Label>
+                  <Label htmlFor="deskripsi">
+                    Deskripsi Singkat (Opsional)
+                  </Label>
                   <Input
                     id="deskripsi"
                     placeholder="Keterangan tambahan"
                     value={formData.deskripsi}
-                    onChange={(e) => setFormData(prev => ({ ...prev, deskripsi: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        deskripsi: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
-                 <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   {/* YA Target */}
                   <div className="space-y-1">
-                    <Label htmlFor="ya_target">Jika Jawaban YA (Lanjut ke Langkah)</Label>
+                    <Label htmlFor="ya_target">
+                      Jika Jawaban YA (Lanjut ke Langkah)
+                    </Label>
                     <select
-                       id="ya_target"
-                       value={formData.ya}
-                       onChange={(e) => setFormData(prev => ({ ...prev, ya: e.target.value }))}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
-                     >
-                       <option value="">-- Selesai / Pindah ke Hasil --</option>
-                       {nodesList.map(n => {
-                         const label = getNodeLabel(n.id);
-                         const typeLabel = getNodeTypeLabel(n.id);
-                         return (
-                           <option key={n.id} value={n.id}>
-                             [{n.id} - {typeLabel}] {label.length > 50 ? label.slice(0, 50) + '...' : label}
-                           </option>
-                         );
-                       })}
-                     </select>
-                   </div>
- 
-                   {/* TIDAK Target */}
-                   <div className="space-y-1">
-                     <Label htmlFor="tidak_target">Jika Jawaban TIDAK (Lanjut ke Langkah)</Label>
-                     <select
-                       id="tidak_target"
-                       value={formData.tidak}
-                       onChange={(e) => setFormData(prev => ({ ...prev, tidak: e.target.value }))}
-                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
-                     >
-                       <option value="">-- Selesai / Pindah ke Hasil --</option>
-                       {nodesList.map(n => {
-                         const label = getNodeLabel(n.id);
-                         const typeLabel = getNodeTypeLabel(n.id);
-                         return (
-                           <option key={n.id} value={n.id}>
-                             [{n.id} - {typeLabel}] {label.length > 50 ? label.slice(0, 50) + '...' : label}
-                           </option>
-                         );
-                       })}
+                      id="ya_target"
+                      value={formData.ya}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, ya: e.target.value }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                    >
+                      <option value="">-- Selesai / Pindah ke Hasil --</option>
+                      {nodesList.map((n) => {
+                        const label = getNodeLabel(n.id);
+                        const typeLabel = getNodeTypeLabel(n.id);
+                        return (
+                          <option key={n.id} value={n.id}>
+                            [{n.id} - {typeLabel}]{" "}
+                            {label.length > 50
+                              ? label.slice(0, 50) + "..."
+                              : label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {/* TIDAK Target */}
+                  <div className="space-y-1">
+                    <Label htmlFor="tidak_target">
+                      Jika Jawaban TIDAK (Lanjut ke Langkah)
+                    </Label>
+                    <select
+                      id="tidak_target"
+                      value={formData.tidak}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          tidak: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
+                    >
+                      <option value="">-- Selesai / Pindah ke Hasil --</option>
+                      {nodesList.map((n) => {
+                        const label = getNodeLabel(n.id);
+                        const typeLabel = getNodeTypeLabel(n.id);
+                        return (
+                          <option key={n.id} value={n.id}>
+                            [{n.id} - {typeLabel}]{" "}
+                            {label.length > 50
+                              ? label.slice(0, 50) + "..."
+                              : label}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>
@@ -427,45 +522,70 @@ export const KelolaPohonKeputusan = () => {
                 <div className="grid grid-cols-2 gap-4">
                   {/* Hasil Terminal */}
                   <div className="space-y-1">
-                    <Label htmlFor="hasil">Penyakit/Hama Teridentifikasi (Jika Ujung)</Label>
+                    <Label htmlFor="hasil">
+                      Penyakit/Hama Teridentifikasi (Jika Ujung)
+                    </Label>
                     <select
                       id="hasil"
                       value={formData.hasil}
                       onChange={(e) => handleHasilChange(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                     >
-                      <option value="">-- Bukan Ujung Alur (Bukan Terminal Leaf) --</option>
+                      <option value="">
+                        -- Bukan Ujung Alur (Bukan Terminal Leaf) --
+                      </option>
                       <optgroup label="Hama & Penyakit">
-                        {penyakitList.map(p => (
-                          <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
+                        {penyakitList.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.kode} - {p.nama}
+                          </option>
                         ))}
                       </optgroup>
                       <optgroup label="Hasil Khusus">
-                        <option value="hama_not_found">Hama Tidak Teridentifikasi</option>
-                        <option value="penyakit_not_found">Penyakit Tidak Teridentifikasi</option>
+                        <option value="hama_not_found">
+                          Hama Tidak Teridentifikasi
+                        </option>
+                        <option value="penyakit_not_found">
+                          Penyakit Tidak Teridentifikasi
+                        </option>
                       </optgroup>
                     </select>
                   </div>
 
                   {/* CF Pakar */}
                   <div className="space-y-1">
-                    <Label htmlFor="cf_pakar">Certainty Factor (CF) Pakar (0 - 1.0)</Label>
+                    <Label htmlFor="cf_pakar">
+                      Certainty Factor (CF) Pakar (0 - 1.0)
+                    </Label>
                     <Input
                       id="cf_pakar"
                       type="number"
                       step="0.05"
                       min="0"
                       max="1"
-                      value={formData.gejala_id 
-                        ? (gejalaList.find(g => g.id === formData.gejala_id)?.cf_pakar ?? formData.cf_pakar)
-                        : formData.cf_pakar}
-                      onChange={(e) => setFormData(prev => ({ ...prev, cf_pakar: parseFloat(e.target.value) || 0 }))}
+                      value={
+                        formData.gejala_id
+                          ? (gejalaList.find((g) => g.id === formData.gejala_id)
+                              ?.cf_pakar ?? formData.cf_pakar)
+                          : formData.cf_pakar
+                      }
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          cf_pakar: parseFloat(e.target.value) || 0,
+                        }))
+                      }
                       disabled={!!formData.gejala_id}
-                      className={formData.gejala_id ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed" : ""}
+                      className={
+                        formData.gejala_id
+                          ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
+                          : ""
+                      }
                     />
                     {formData.gejala_id && (
                       <p className="text-[11px] text-pink-600 italic mt-0.5">
-                        * CF Pakar dikunci & disinkronkan otomatis dari data master gejala.
+                        * CF Pakar dikunci & disinkronkan otomatis dari data
+                        master gejala.
                       </p>
                     )}
                   </div>
@@ -473,18 +593,65 @@ export const KelolaPohonKeputusan = () => {
 
                 {/* Preview Alur */}
                 <div className="bg-pink-50 rounded-xl p-3 border border-pink-100 text-xs text-pink-800 space-y-1">
-                  <p><strong>Alur Singkat:</strong></p>
-                  <p>Node: <span className="font-semibold">{formData.id || '(Belum diisi)'}</span> {formData.kode_gejala ? `(${formData.kode_gejala})` : ''} - <span className="italic text-gray-700">{formData.nama_gejala || '(Tanpa Keterangan)'}</span></p>
-                  <p>↳ <span className="text-emerald-700 font-bold">YA</span> &rarr; {formData.ya ? <span className="font-semibold text-emerald-800">{formData.ya} ({getNodeLabel(formData.ya)})</span> : <span className="italic text-gray-500">Hasil: {formData.hasil ? getNodeLabel(formData.id) : 'Selesai'}</span>}</p>
-                  <p>↳ <span className="text-red-700 font-bold">TIDAK</span> &rarr; {formData.tidak ? <span className="font-semibold text-red-800">{formData.tidak} ({getNodeLabel(formData.tidak)})</span> : <span className="italic text-gray-500">Hasil: {formData.hasil ? getNodeLabel(formData.id) : 'Selesai'}</span>}</p>
+                  <p>
+                    <strong>Alur Singkat:</strong>
+                  </p>
+                  <p>
+                    Node:{" "}
+                    <span className="font-semibold">
+                      {formData.id || "(Belum diisi)"}
+                    </span>{" "}
+                    {formData.kode_gejala ? `(${formData.kode_gejala})` : ""} -{" "}
+                    <span className="italic text-gray-700">
+                      {formData.nama_gejala || "(Tanpa Keterangan)"}
+                    </span>
+                  </p>
+                  <p>
+                    ↳ <span className="text-emerald-700 font-bold">YA</span>{" "}
+                    &rarr;{" "}
+                    {formData.ya ? (
+                      <span className="font-semibold text-emerald-800">
+                        {formData.ya} ({getNodeLabel(formData.ya)})
+                      </span>
+                    ) : (
+                      <span className="italic text-gray-500">
+                        Hasil:{" "}
+                        {formData.hasil ? getNodeLabel(formData.id) : "Selesai"}
+                      </span>
+                    )}
+                  </p>
+                  <p>
+                    ↳ <span className="text-red-700 font-bold">TIDAK</span>{" "}
+                    &rarr;{" "}
+                    {formData.tidak ? (
+                      <span className="font-semibold text-red-800">
+                        {formData.tidak} ({getNodeLabel(formData.tidak)})
+                      </span>
+                    ) : (
+                      <span className="italic text-gray-500">
+                        Hasil:{" "}
+                        {formData.hasil ? getNodeLabel(formData.id) : "Selesai"}
+                      </span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(false)}
+                  >
                     Batal
                   </Button>
-                  <Button type="submit" className="bg-pink-600 hover:bg-pink-700" disabled={saving}>
-                    {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  <Button
+                    type="submit"
+                    className="bg-pink-600 hover:bg-pink-700"
+                    disabled={saving}
+                  >
+                    {saving && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
                     Simpan Node
                   </Button>
                 </div>
@@ -502,7 +669,10 @@ export const KelolaPohonKeputusan = () => {
             <Input
               placeholder="Cari berdasarkan Node ID, kode/nama gejala, atau kesimpulan..."
               value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="pl-10"
             />
           </div>
@@ -518,9 +688,11 @@ export const KelolaPohonKeputusan = () => {
                 <TableHead className="w-[180px]">ID Langkah (Alur)</TableHead>
                 <TableHead className="w-[100px]">Kode Gejala</TableHead>
                 <TableHead>Pertanyaan / Deskripsi Node</TableHead>
-                <TableHead className="w-[150px]">Jika YA Lanjut Ke</TableHead>
-                <TableHead className="w-[150px]">Jika TIDAK Lanjut Ke</TableHead>
-                <TableHead className="w-[180px]">Hasil Akhir Diagnosa</TableHead>
+                <TableHead className="w-[150px]">Jika Jawaban YA</TableHead>
+                <TableHead className="w-[150px]">Jika Jawaban TIDAK</TableHead>
+                <TableHead className="w-[180px]">
+                  Hasil Akhir Diagnosa
+                </TableHead>
                 <TableHead className="w-[80px] text-center">Bobot CF</TableHead>
                 <TableHead className="w-[100px] text-right">Aksi</TableHead>
               </TableRow>
@@ -528,7 +700,10 @@ export const KelolaPohonKeputusan = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-20 text-gray-500">
+                  <TableCell
+                    colSpan={8}
+                    className="text-center py-20 text-gray-500"
+                  >
                     <Loader2 className="w-8 h-8 animate-spin mx-auto text-pink-600 mb-2" />
                     Memuat data pohon keputusan...
                   </TableCell>
@@ -538,7 +713,9 @@ export const KelolaPohonKeputusan = () => {
                   <TableRow key={node.id} className="hover:bg-gray-50/50">
                     <TableCell className="font-mono text-sm font-semibold text-gray-800">
                       <div className="flex flex-col">
-                        <span className="text-gray-900 font-bold">{node.id}</span>
+                        <span className="text-gray-900 font-bold">
+                          {node.id}
+                        </span>
                         <span className="text-[10px] text-gray-500 font-normal mt-0.5 leading-none">
                           {getNodeTypeLabel(node.id)}
                         </span>
@@ -546,14 +723,18 @@ export const KelolaPohonKeputusan = () => {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const matched = node.gejala_id ? gejalaList.find(g => g.id === node.gejala_id) : null;
+                        const matched = node.gejala_id
+                          ? gejalaList.find((g) => g.id === node.gejala_id)
+                          : null;
                         const kode = matched ? matched.kode : node.kode_gejala;
                         return kode ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-pink-100 text-pink-800">
                             {kode}
                           </span>
                         ) : (
-                          <span className="text-gray-400 text-xs italic">Sistem</span>
+                          <span className="text-gray-400 text-xs italic">
+                            Sistem
+                          </span>
                         );
                       })()}
                     </TableCell>
@@ -561,18 +742,25 @@ export const KelolaPohonKeputusan = () => {
                       <div className="max-w-md">
                         <p className="text-sm font-medium text-gray-900 line-clamp-2">
                           {(() => {
-                            const matched = node.gejala_id ? gejalaList.find(g => g.id === node.gejala_id) : null;
+                            const matched = node.gejala_id
+                              ? gejalaList.find((g) => g.id === node.gejala_id)
+                              : null;
                             return matched ? matched.nama : node.nama_gejala;
                           })()}
                         </p>
                         {node.deskripsi && (
-                          <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{node.deskripsi}</p>
+                          <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                            {node.deskripsi}
+                          </p>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       {node.ya ? (
-                        <div className="flex flex-col" title={getNodeLabel(node.ya)}>
+                        <div
+                          className="flex flex-col"
+                          title={getNodeLabel(node.ya)}
+                        >
                           <span className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 w-max mb-0.5">
                             {node.ya}
                           </span>
@@ -581,12 +769,17 @@ export const KelolaPohonKeputusan = () => {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-xs italic">Selesai</span>
+                        <span className="text-gray-400 text-xs italic">
+                          Selesai
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
                       {node.tidak ? (
-                        <div className="flex flex-col" title={getNodeLabel(node.tidak)}>
+                        <div
+                          className="flex flex-col"
+                          title={getNodeLabel(node.tidak)}
+                        >
                           <span className="text-[10px] font-mono font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 w-max mb-0.5">
                             {node.tidak}
                           </span>
@@ -595,7 +788,9 @@ export const KelolaPohonKeputusan = () => {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-xs italic">Selesai</span>
+                        <span className="text-gray-400 text-xs italic">
+                          Selesai
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -604,10 +799,21 @@ export const KelolaPohonKeputusan = () => {
                           <span className="text-xs font-semibold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 w-max mb-0.5">
                             🏆 {node.hasil.toUpperCase()}
                           </span>
-                          <span className="text-xs text-gray-500 max-w-[150px] truncate block" title={node.hasil}>
+                          <span
+                            className="text-xs text-gray-500 max-w-[150px] truncate block"
+                            title={node.hasil}
+                          >
                             {(() => {
-                              const p = penyakitList.find(x => x.id === node.hasil);
-                              return p ? p.nama : node.hasil === 'hama_not_found' ? 'Hama Tidak Teridentifikasi' : node.hasil === 'penyakit_not_found' ? 'Penyakit Tidak Teridentifikasi' : node.hasil;
+                              const p = penyakitList.find(
+                                (x) => x.id === node.hasil,
+                              );
+                              return p
+                                ? p.nama
+                                : node.hasil === "hama_not_found"
+                                  ? "Hama Tidak Teridentifikasi"
+                                  : node.hasil === "penyakit_not_found"
+                                    ? "Penyakit Tidak Teridentifikasi"
+                                    : node.hasil;
                             })()}
                           </span>
                         </div>
@@ -617,7 +823,9 @@ export const KelolaPohonKeputusan = () => {
                     </TableCell>
                     <TableCell className="text-center font-mono text-sm">
                       {(() => {
-                        const matched = node.gejala_id ? gejalaList.find(g => g.id === node.gejala_id) : null;
+                        const matched = node.gejala_id
+                          ? gejalaList.find((g) => g.id === node.gejala_id)
+                          : null;
                         return matched ? matched.cf_pakar : node.cf_pakar;
                       })()}
                     </TableCell>
@@ -644,7 +852,10 @@ export const KelolaPohonKeputusan = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                  <TableCell
+                    colSpan={8}
+                    className="text-center py-8 text-gray-500"
+                  >
                     Tidak ada data node
                   </TableCell>
                 </TableRow>
@@ -667,9 +878,19 @@ export const KelolaPohonKeputusan = () => {
         <div className="text-sm text-pink-900">
           <h4 className="font-semibold mb-1">Panduan Pengelolaan Pohon:</h4>
           <ul className="list-disc pl-4 space-y-1 text-xs leading-relaxed text-pink-800">
-            <li><strong>Root Node</strong> adalah node awal dengan ID `root` yang menanyakan gejala pembeda umum `G00`.</li>
-            <li>Untuk membuat <strong>Node Pertanyaan</strong>, pilih Gejala dan arahkan target YA / TIDAK ke Node ID selanjutnya.</li>
-            <li>Untuk membuat <strong>Node Kesimpulan (Ujung Alur)</strong>, kosongkan target YA / TIDAK, lalu pilih Hama/Penyakit Teridentifikasi di dropdown kesimpulan.</li>
+            <li>
+              <strong>Root Node</strong> adalah node awal dengan ID `root` yang
+              menanyakan gejala pembeda umum `G00`.
+            </li>
+            <li>
+              Untuk membuat <strong>Node Pertanyaan</strong>, pilih Gejala dan
+              arahkan target YA / TIDAK ke Node ID selanjutnya.
+            </li>
+            <li>
+              Untuk membuat <strong>Node Kesimpulan (Ujung Alur)</strong>,
+              kosongkan target YA / TIDAK, lalu pilih Hama/Penyakit
+              Teridentifikasi di dropdown kesimpulan.
+            </li>
           </ul>
         </div>
       </div>
