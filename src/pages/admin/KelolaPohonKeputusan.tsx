@@ -38,6 +38,7 @@ import {
   Loader2,
   RefreshCw,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 import {
   fetchPohonKeputusan,
@@ -50,10 +51,11 @@ import {
 import { TablePagination } from "@/components/ui/table-pagination";
 import { toast } from "sonner";
 import type { Gejala, Penyakit } from "@/types";
+import { PohonKeputusanPreview } from "./PohonKeputusanPreview";
 
 const ITEMS_PER_PAGE = 10;
 
-interface PohonNode {
+export interface PohonNode {
   id: string;
   gejala_id: string | null;
   kode_gejala: string | null;
@@ -73,6 +75,7 @@ export const KelolaPohonKeputusan = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<PohonNode | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Form States
   const [formData, setFormData] = useState({
@@ -417,6 +420,13 @@ export const KelolaPohonKeputusan = () => {
               className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
             />
             Refresh
+          </Button>
+          <Button
+            onClick={() => setIsPreviewOpen(true)}
+            className="bg-pink-600 hover:bg-pink-700 text-white"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Preview Pohon
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -1072,6 +1082,16 @@ export const KelolaPohonKeputusan = () => {
           </ul>
         </div>
       </div>
+      
+      <PohonKeputusanPreview
+        isOpen={isPreviewOpen}
+        onOpenChange={setIsPreviewOpen}
+        nodesList={nodesList}
+        gejalaList={gejalaList}
+        penyakitList={penyakitList}
+        onEditNode={handleEdit}
+        loading={loading}
+      />
     </div>
   );
 };

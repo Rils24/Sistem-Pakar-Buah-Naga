@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { fetchRules, fetchGejala, fetchPenyakit, fetchPohonKeputusan, insertHasilDiagnosa } from '@/services/supabaseService';
@@ -186,8 +186,6 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
       setAllCFResults([]);
       return;
     }
-
-    const yaGejalaIds = new Set(yaJawabans.map(j => j.gejalaId));
 
     // ── Hitung CF untuk SETIAP penyakit ─────────────────────────────
     const allResults: any[] = [];

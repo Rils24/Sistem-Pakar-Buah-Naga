@@ -49,7 +49,6 @@ import {
   updatePenyakit,
   deletePenyakit,
   uploadMultiplePenyakitImages,
-  deletePenyakitImage,
   deleteMultiplePenyakitImages,
 } from "@/services/supabaseService";
 import { TablePagination } from "@/components/ui/table-pagination";

@@ -17,7 +17,7 @@ import {
   Bug
 } from 'lucide-react';
 import { fetchPenyakit, fetchGejala, fetchRules } from '@/services/supabaseService';
-import type { Penyakit, Gejala, Rule } from '@/types';
+import type { Penyakit } from '@/types';
 
 export const LandingPage = () => {
   const navigate = useNavigate();
