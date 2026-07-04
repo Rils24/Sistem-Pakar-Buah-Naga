@@ -877,7 +877,7 @@
       // In combined view, offset all penyakit nodes horizontally to prevent overlap
       if (currentTreeType === 'gabungan' && (nodeId.startsWith('p0') || nodeId === 'penyakit_group' || nodeId === 'penyakit_not_found')) {
         return {
-          x: pos.x + 2800,
+          x: pos.x + 3200,
           y: pos.y
         };
       }
@@ -998,13 +998,13 @@
       let maxY = 1200;
       
       if (currentTreeType === 'hama') {
-        maxX = 3100;
-        maxY = 1000;
+        maxX = 3200;
+        maxY = 1100;
       } else if (currentTreeType === 'penyakit') {
-        maxX = 2700;
+        maxX = 6200;
         maxY = 1600;
       } else { // Combined
-        maxX = 5800;
+        maxX = 9200;
         maxY = 1600;
       }
       
@@ -1040,11 +1040,11 @@
       // Auto-fit responsive scale based on tab selection
       const containerWidth = container.clientWidth;
       if (currentTreeType === 'gabungan') {
-        zoomLevel = Math.max(0.12, containerWidth / 5800 * 0.95);
+        zoomLevel = Math.max(0.08, containerWidth / 9200 * 0.95);
       } else if (currentTreeType === 'hama') {
-        zoomLevel = Math.max(0.25, containerWidth / 3100 * 0.95);
+        zoomLevel = Math.max(0.20, containerWidth / 3100 * 0.95);
       } else {
-        zoomLevel = Math.max(0.25, containerWidth / 2700 * 0.95);
+        zoomLevel = Math.max(0.15, containerWidth / 6200 * 0.95);
       }
       
       panX = 40;
@@ -1364,7 +1364,7 @@
       const groups = {};
       
       nodes.forEach(n => {
-        if (n.id === 'root' || n.id === 'hama_group' || n.id === 'penyakit_group') return;
+        if (n.id === 'root' || n.id === 'hama_group' || n.id === 'penyakit_group' || n.id === 'penyakit_not_found' || n.id === 'hama_not_found') return;
         const match = n.id.match(/^([hp]\d{2})/);
         if (match) {
           const grp = match[1];
@@ -1375,46 +1375,109 @@
 
       for (const grp in groups) {
         const grpNodes = groups[grp];
+        
+        // If all nodes in this group are present in the static nodePositions map, use those positions.
+        const allStatic = grpNodes.every(n => nodePositions[n.id]);
+        if (allStatic) {
+          grpNodes.forEach(n => {
+            positions[n.id] = nodePositions[n.id];
+          });
+          continue;
+        }
+
         const startNode = grpNodes.find(n => n.id.endsWith('_check'));
         if (!startNode) continue;
 
-        // BFS to assign levels and coordinates
-        const queue = [{ id: startNode.id, depth: 0, offset: 0 }];
-        const visited = new Set();
-        
-        const type = grp.charAt(0);
+        const isHama = grp.startsWith('h');
         const idx = parseInt(grp.substring(1), 10);
-        const columnCenter = (idx - 1) * 400 + 300;
+        
+        // Define columnCenter and spacing:
+        // Hama uses 450px column centers, Penyakit uses 950px centers to handle complex branching
+        const columnCenter = isHama ? (idx - 1) * 450 + 300 : (idx - 1) * 950 + 400;
+        const horizSpacing = isHama ? 90 : 130;
+        const vertSpacing = isHama ? 100 : 110;
 
-        while (queue.length > 0) {
-          const current = queue.shift();
-          if (visited.has(current.id)) continue;
-          visited.add(current.id);
-
-          const node = grpNodes.find(n => n.id === current.id);
-          if (!node) continue;
-
-          if (!positions[node.id]) {
-            const calculatedX = columnCenter + current.offset * 85;
-            const calculatedY = 250 + current.depth * 100;
-            positions[node.id] = { x: calculatedX, y: calculatedY };
-          }
-
-          if (node.ya && grpNodes.some(n => n.id === node.ya)) {
-            queue.push({ id: node.ya, depth: current.depth + 1, offset: current.offset - 0.7 });
-          }
-          if (node.tidak && grpNodes.some(n => n.id === node.tidak)) {
-            queue.push({ id: node.tidak, depth: current.depth + 1, offset: current.offset + 0.7 });
-          }
+        // Step 1: Calculate depth using DAG longest-path to prevent upward lines
+        const depths = {};
+        depths[startNode.id] = 0;
+        
+        let changed = true;
+        for (let iter = 0; iter < 100 && changed; iter++) {
+          changed = false;
+          grpNodes.forEach(node => {
+            const uDepth = depths[node.id];
+            if (uDepth !== undefined) {
+              ['ya', 'tidak'].forEach(childKey => {
+                const childId = node[childKey];
+                if (childId && grpNodes.some(n => n.id === childId)) {
+                  const newDepth = uDepth + 1;
+                  if (depths[childId] === undefined || depths[childId] < newDepth) {
+                    depths[childId] = newDepth;
+                    changed = true;
+                  }
+                }
+              });
+            }
+          });
         }
 
-        // Catch orphan nodes
-        grpNodes.forEach(n => {
-          if (!positions[n.id]) {
-            positions[n.id] = { x: columnCenter, y: 750 };
+        // Default depth for unreached nodes
+        grpNodes.forEach(node => {
+          if (depths[node.id] === undefined) {
+            depths[node.id] = 0;
           }
         });
+
+        // Step 2: Group by depth levels
+        const levels = {};
+        grpNodes.forEach(node => {
+          const d = depths[node.id];
+          if (!levels[d]) levels[d] = [];
+          levels[d].push(node);
+        });
+
+        const maxD = Math.max(...Object.keys(levels).map(Number));
+        
+        // Step 3: Assign positions level by level
+        for (let d = 0; d <= maxD; d++) {
+          const levelNodes = levels[d] || [];
+          if (levelNodes.length === 0) continue;
+
+          // Sort nodes to minimize crossing based on average parent X coordinate
+          if (d > 0) {
+            levelNodes.sort((a, b) => {
+              const getAvgParentX = (nodeId) => {
+                let sumX = 0;
+                let count = 0;
+                grpNodes.forEach(p => {
+                  if ((p.ya === nodeId || p.tidak === nodeId) && positions[p.id]) {
+                    sumX += positions[p.id].x;
+                    count++;
+                  }
+                });
+                return count > 0 ? sumX / count : columnCenter;
+              };
+              return getAvgParentX(a.id) - getAvgParentX(b.id);
+            });
+          }
+
+          // Distribute nodes evenly around the columnCenter at level d
+          const numNodes = levelNodes.length;
+          levelNodes.forEach((node, i) => {
+            const offset = i - (numNodes - 1) / 2;
+            const x = columnCenter + offset * horizSpacing;
+            const y = 250 + d * vertSpacing;
+            positions[node.id] = { x, y };
+          });
+        }
       }
+
+      // Set global positions for isolated/special nodes
+      const lastPenyakitColCenter = 5 * 950 + 400; // P06 column center (5150)
+      positions['penyakit_not_found'] = { x: lastPenyakitColCenter + 400, y: 350 };
+      
+      const lastHamaColCenter = 6 * 450 + 300; // H07 column center (3000)
+      positions['hama_not_found'] = { x: lastHamaColCenter + 300, y: 350 };
 
       Object.assign(nodePositions, positions);
     };

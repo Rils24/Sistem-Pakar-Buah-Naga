@@ -5,11 +5,18 @@
     <title>Use Case Diagram - Sistem Pakar Buah Naga</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{background:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:'Segoe UI',sans-serif;padding:20px}
+        body{background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;font-family:'Segoe UI',sans-serif;padding:20px;gap:16px}
         svg{max-width:1050px;width:100%;height:auto}
+        .export-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .2s,transform .15s}
+        .export-btn:hover{background:#047857;transform:translateY(-1px)}
+        .export-btn svg{width:16px;height:16px;fill:currentColor}
     </style>
 </head>
 <body>
+<button class="export-btn" onclick="exportToDrawIO()">
+    <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+    Export ke Draw.io (.drawio)
+</button>
 <svg viewBox="0 0 1050 850" xmlns="http://www.w3.org/2000/svg">
 <defs>
     <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0,0 8,3 0,6" fill="#111"/></marker>
@@ -158,5 +165,143 @@
 <text x="639" y="565" text-anchor="middle" font-family="Segoe UI" font-size="9.5" fill="#111">«include»</text>
 
 </svg>
+
+<script>
+function escXml(s){
+  if(!s)return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+function exportToDrawIO(){
+  // ===== DATA MODEL =====
+  const actors=[
+    {id:'actor_admin',name:'Admin',x:62,y:430},
+    {id:'actor_user',name:'User',x:988,y:430}
+  ];
+
+  const useCases=[
+    {id:'uc_login',label:'Login',cx:525,cy:430,rx:65,ry:26},
+    {id:'uc_registrasi',label:'Registrasi',cx:710,cy:75,rx:78,ry:24},
+    {id:'uc_logout',label:'Logout',cx:525,cy:780,rx:68,ry:24},
+    // Admin UCs
+    {id:'uc_gejala',label:'Melihat,\nMengelola Data Gejala',cx:275,cy:120,rx:93,ry:28},
+    {id:'uc_penyakit',label:'Melihat,\nMengelola Data Penyakit',cx:275,cy:225,rx:93,ry:28},
+    {id:'uc_rule',label:'Melihat,\nMengelola Data Rule',cx:275,cy:335,rx:93,ry:28},
+    {id:'uc_users',label:'Melihat,\nMengelola Data Users',cx:275,cy:535,rx:93,ry:28},
+    {id:'uc_histori',label:'Melihat Detail\nHistori Diagnosa',cx:275,cy:650,rx:93,ry:28},
+    // User UCs
+    {id:'uc_diagnosa',label:'Melakukan\nDiagnosa',cx:770,cy:180,rx:85,ry:26},
+    {id:'uc_hasil',label:'Melihat Hasil\nDiagnosa',cx:770,cy:310,rx:85,ry:26},
+    {id:'uc_riwayat',label:'Melihat Riwayat\nDiagnosa',cx:770,cy:555,rx:85,ry:26},
+    {id:'uc_profil',label:'Edit\nProfil',cx:770,cy:675,rx:80,ry:26}
+  ];
+
+  // Solid association lines (actor → use case)
+  const associations=[
+    {from:'actor_admin',to:'uc_gejala'},
+    {from:'actor_admin',to:'uc_penyakit'},
+    {from:'actor_admin',to:'uc_rule'},
+    {from:'actor_admin',to:'uc_users'},
+    {from:'actor_admin',to:'uc_histori'},
+    {from:'actor_admin',to:'uc_login'},
+    {from:'actor_admin',to:'uc_logout'},
+    {from:'actor_user',to:'uc_diagnosa'},
+    {from:'actor_user',to:'uc_hasil'},
+    {from:'actor_user',to:'uc_riwayat'},
+    {from:'actor_user',to:'uc_profil'},
+    {from:'actor_user',to:'uc_login'},
+    {from:'actor_user',to:'uc_registrasi'},
+    {from:'actor_user',to:'uc_logout'}
+  ];
+
+  // Dashed «include» lines (login → UCs that require login)
+  const includes=[
+    {from:'uc_login',to:'uc_gejala'},
+    {from:'uc_login',to:'uc_penyakit'},
+    {from:'uc_login',to:'uc_rule'},
+    {from:'uc_login',to:'uc_users'},
+    {from:'uc_login',to:'uc_histori'},
+    {from:'uc_login',to:'uc_diagnosa'},
+    {from:'uc_login',to:'uc_hasil'},
+    {from:'uc_login',to:'uc_riwayat'},
+    {from:'uc_login',to:'uc_profil'}
+  ];
+
+  // ===== BUILD XML =====
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml+='<mxfile host="app.diagrams.net" modified="'+new Date().toISOString()+'" agent="Antigravity" version="20.0.0" type="device">\n';
+  xml+='  <diagram id="use_case" name="Use Case Diagram">\n';
+  xml+='    <mxGraphModel dx="1300" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">\n';
+  xml+='      <root>\n';
+  xml+='        <mxCell id="0" />\n';
+  xml+='        <mxCell id="1" parent="0" />\n';
+
+  let cid=10;
+
+  // System boundary box
+  const sysId=cid++;
+  xml+=`        <mxCell id="${sysId}" value="${escXml('Sistem')}" style="shape=umlFrame;whiteSpace=wrap;html=1;width=60;height=20;boundedLbl=1;verticalAlign=top;align=left;spacingTop=0;strokeColor=#111111;strokeWidth=1.8;fillColor=none;fontSize=14;fontStyle=1;fontFamily=Segoe UI;" vertex="1" parent="1">\n`;
+  xml+=`          <mxGeometry x="155" y="30" width="740" height="790" as="geometry" />\n`;
+  xml+=`        </mxCell>\n`;
+
+  // Actors
+  const actorIdMap={};
+  actors.forEach(a=>{
+    const id=cid++;
+    actorIdMap[a.id]=id;
+    // Draw.io UML actor shape
+    xml+=`        <mxCell id="${id}" value="${escXml(a.name)}" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#111111;strokeWidth=1.8;fillColor=none;fontSize=12;fontStyle=1;fontFamily=Segoe UI;" vertex="1" parent="1">\n`;
+    xml+=`          <mxGeometry x="${a.x-15}" y="${a.y-25}" width="30" height="55" as="geometry" />\n`;
+    xml+=`        </mxCell>\n`;
+  });
+
+  // Use Cases
+  const ucIdMap={};
+  useCases.forEach(uc=>{
+    const id=cid++;
+    ucIdMap[uc.id]=id;
+    const label=escXml(uc.label.replace(/\n/g,'<br/>'));
+    xml+=`        <mxCell id="${id}" value="${label}" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#111111;strokeWidth=1.4;fontSize=11;fontFamily=Segoe UI;align=center;" vertex="1" parent="1">\n`;
+    xml+=`          <mxGeometry x="${uc.cx-uc.rx}" y="${uc.cy-uc.ry}" width="${uc.rx*2}" height="${uc.ry*2}" as="geometry" />\n`;
+    xml+=`        </mxCell>\n`;
+  });
+
+  // Association edges (solid lines)
+  associations.forEach(assoc=>{
+    const eid=cid++;
+    const srcId=actorIdMap[assoc.from];
+    const tgtId=ucIdMap[assoc.to];
+    if(!srcId||!tgtId)return;
+    xml+=`        <mxCell id="${eid}" value="" style="endArrow=none;html=1;strokeColor=#111111;strokeWidth=1.1;fontFamily=Segoe UI;" edge="1" parent="1" source="${srcId}" target="${tgtId}">\n`;
+    xml+=`          <mxGeometry relative="1" as="geometry" />\n`;
+    xml+=`        </mxCell>\n`;
+  });
+
+  // Include edges (dashed lines with «include» label and arrow)
+  includes.forEach(inc=>{
+    const eid=cid++;
+    const srcId=ucIdMap[inc.from];
+    const tgtId=ucIdMap[inc.to];
+    if(!srcId||!tgtId)return;
+    xml+=`        <mxCell id="${eid}" value="${escXml('«include»')}" style="endArrow=open;endSize=12;dashed=1;html=1;strokeColor=#111111;strokeWidth=1;fontSize=9.5;fontFamily=Segoe UI;verticalAlign=bottom;" edge="1" parent="1" source="${srcId}" target="${tgtId}">\n`;
+    xml+=`          <mxGeometry relative="1" as="geometry" />\n`;
+    xml+=`        </mxCell>\n`;
+  });
+
+  xml+='      </root>\n';
+  xml+='    </mxGraphModel>\n';
+  xml+='  </diagram>\n';
+  xml+='</mxfile>\n';
+
+  // Download
+  const blob=new Blob([xml],{type:'application/xml;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='use_case_diagram.drawio';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
 </body>
 </html>
