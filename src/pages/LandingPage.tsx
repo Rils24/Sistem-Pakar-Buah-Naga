@@ -84,7 +84,7 @@ export const LandingPage = () => {
     {
       number: '03',
       title: 'Certainty Factor',
-      description: 'Hitung CF = CF(User) × CF(Pakar) untuk tingkat kepastian'
+      description: 'Hitung CF kombinasi dari gejala untuk persentase kepastian'
     }
   ];
 
@@ -327,22 +327,24 @@ export const LandingPage = () => {
       {/* Forward Chaining + CF Detail */}
       <section className="py-20 bg-gradient-to-br from-blue-50 via-white to-pink-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid lg:grid-cols-2 gap-12 items-stretch">
             {/* Forward Chaining */}
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
-                <GitBranch className="w-4 h-4" />
-                Forward Chaining
+            <div className="flex flex-col justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
+                  <GitBranch className="w-4 h-4" />
+                  Forward Chaining
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4 min-h-[4rem]">
+                  Penalaran Maju dari Gejala ke Hama & Penyakit
+                </h2>
+                <p className="text-gray-600 mb-6 leading-relaxed min-h-[4.5rem]">
+                  Forward Chaining bekerja dari fakta (gejala) menuju kesimpulan (hama & penyakit). 
+                  Sistem mencocokkan gejala yang dipilih pengguna dengan aturan IF-THEN hingga menemukan keputusan akhir.
+                </p>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                Penalaran Maju dari Gejala ke Penyakit
-              </h2>
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                Forward Chaining bekerja dari fakta yang diketahui (gejala) menuju kesimpulan (penyakit). 
-                Sistem mencocokkan gejala yang dipilih dengan rules untuk menemukan penyakit yang sesuai.
-              </p>
-              <div className="bg-white rounded-xl p-6 shadow-md border border-blue-100">
-                <h4 className="font-semibold text-blue-900 mb-3">Contoh Rule:</h4>
+              <div className="bg-white rounded-xl p-6 shadow-md border border-blue-100 h-full flex flex-col justify-center">
+                <h4 className="font-semibold text-blue-900 mb-3">Contoh Rule Penalaran:</h4>
                 <div className="font-mono text-sm text-blue-700 space-y-2">
                   <p><span className="text-pink-600 font-bold">IF</span> Batang membusuk</p>
                   <p><span className="text-pink-600 font-bold">AND</span> Batang lembek berair</p>
@@ -352,25 +354,26 @@ export const LandingPage = () => {
             </div>
 
             {/* Certainty Factor */}
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-sm font-medium mb-4">
-                <Calculator className="w-4 h-4" />
-                Certainty Factor
+            <div className="flex flex-col justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-sm font-medium mb-4">
+                  <Calculator className="w-4 h-4" />
+                  Certainty Factor
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4 min-h-[4rem]">
+                  Perhitungan Kepastian (Certainty Factor)
+                </h2>
+                <p className="text-gray-600 mb-6 leading-relaxed min-h-[4.5rem]">
+                  Tingkat kepastian dihitung dari pilihan <strong>Ya (CF=1.0)</strong> dan <strong>Tidak (CF=0.0)</strong>, lalu dikombinasikan dengan rumus: <strong>CF<sub>kombinasi</sub> = CF<sub>1</sub> + CF<sub>2</sub> × (1 - CF<sub>1</sub>)</strong>.
+                </p>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">
-                Perhitungan Kepastian per Gejala
-              </h2>
-              <p className="text-gray-600 mb-6 leading-relaxed">
-                Setiap gejala memiliki CF (Certainty Factor) dari pakar. Perhitungan:{' '}
-                <strong>CF = CF(User) × CF(Pakar)</strong>. Semakin tinggi CF, semakin yakin diagnosanya.
-              </p>
-              <div className="bg-white rounded-xl p-6 shadow-md border border-pink-100">
-                <h4 className="font-semibold text-pink-900 mb-3">Contoh Perhitungan:</h4>
+              <div className="bg-white rounded-xl p-6 shadow-md border border-pink-100 h-full flex flex-col justify-center">
+                <h4 className="font-semibold text-pink-900 mb-3">Contoh Perhitungan Kombinasi:</h4>
                 <div className="font-mono text-sm text-pink-700 space-y-2">
-                  <p>CF User (Yakin) = 0.8</p>
-                  <p>CF Pakar (Gejala) = 0.9</p>
-                  <p className="border-t pt-2 mt-2">
-                    <strong>CF = 0.8 × 0.9 = 0.72 (72%)</strong>
+                  <p>Gejala 1 (Ya, CF Pakar 0.8) : CF₁ = 1.0 × 0.8 = 0.80</p>
+                  <p>Gejala 2 (Ya, CF Pakar 0.6) : CF₂ = 1.0 × 0.6 = 0.60</p>
+                  <p className="border-t pt-2 mt-2 font-semibold">
+                    CF<sub>kombinasi</sub> = 0.80 + 0.60 × (1 - 0.80) = 0.92 (92%)
                   </p>
                 </div>
               </div>

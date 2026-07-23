@@ -24,7 +24,9 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalDiagnosa: 0,
+    totalHama: 0,
     totalPenyakit: 0,
+    totalHamaPenyakit: 0,
     totalGejala: 0,
     diagnosaTerakhir: null as any
   });
@@ -42,9 +44,14 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
         fetchGejala()
       ]);
       
+      const totalHama = penyakit.filter((p: any) => p.tipe === 'hama').length;
+      const totalPenyakit = penyakit.filter((p: any) => p.tipe === 'penyakit').length;
+
       setStats({
         totalDiagnosa: riwayat.length,
-        totalPenyakit: penyakit.length,
+        totalHama,
+        totalPenyakit,
+        totalHamaPenyakit: penyakit.length,
         totalGejala: gejala.length,
         diagnosaTerakhir: riwayat[0] || null
       });
@@ -72,7 +79,7 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
           Selamat Datang, {user.nama}!
         </h1>
         <p className="text-pink-100 text-lg">
-          Sistem Pakar Buah Naga siap membantu mendiagnosa penyakit pada tanaman Anda
+          Sistem Pakar Buah Naga siap membantu mendiagnosa hama & penyakit pada tanaman Anda
         </p>
       </div>
 
@@ -148,8 +155,8 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
                 <Sprout className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Jenis Penyakit</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalPenyakit}</p>
+                <p className="text-sm text-gray-500">Hama & Penyakit</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalHamaPenyakit}</p>
               </div>
             </div>
           </CardContent>

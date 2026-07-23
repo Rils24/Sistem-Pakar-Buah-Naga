@@ -359,8 +359,8 @@ export const KelolaPenyakit = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Kelola Penyakit</h1>
-          <p className="text-gray-500">Manajemen data penyakit buah naga</p>
+          <h1 className="text-2xl font-bold text-gray-900">Kelola Hama & Penyakit</h1>
+          <p className="text-gray-500">Manajemen data hama & penyakit buah naga</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>

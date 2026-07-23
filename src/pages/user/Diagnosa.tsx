@@ -178,7 +178,14 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
 
   // Hitung CF untuk SEMUA penyakit berdasarkan gejala "Ya"
   const calculateCFResult = async (jawabans: Jawaban[], confirmedPenyakitId: string) => {
-    const yaJawabans = jawabans.filter(j => j.jawaban === 'ya' && j.gejalaId);
+    // Mengabaikan G00 / Root Node / Group Node dari perhitungan CF karena G00 hanyalah filter/navigasi kategori (Hama vs Penyakit)
+    const yaJawabans = jawabans.filter(j => 
+      j.jawaban === 'ya' && 
+      j.gejalaId && 
+      j.kodeGejala !== 'G00' && 
+      j.nodeId !== 'root' && 
+      !j.nodeId.endsWith('_group')
+    );
 
     if (yaJawabans.length === 0) {
       setCfTotal(0);

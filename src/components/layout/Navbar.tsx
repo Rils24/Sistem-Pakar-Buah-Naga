@@ -26,7 +26,7 @@ export const Navbar = ({ user, onLogout }: NavbarProps) => {
   const navLinks = user?.role === 'admin' 
     ? [
         { path: '/admin', label: 'Dashboard', icon: Home },
-        { path: '/admin/penyakit', label: 'Penyakit', icon: Sprout },
+        { path: '/admin/penyakit', label: 'Hama & Penyakit', icon: Sprout },
         { path: '/admin/gejala', label: 'Gejala', icon: Stethoscope },
         { path: '/admin/rules', label: 'Rules', icon: History },
         { path: '/admin/pohon', label: 'Pohon Keputusan', icon: GitBranch },

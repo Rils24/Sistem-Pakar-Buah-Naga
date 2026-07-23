@@ -5,7 +5,9 @@ import { Sprout, Stethoscope, BookOpen, Users, Activity, GitBranch, Calculator, 
 
 export const AdminDashboard = () => {
   const [stats, setStats] = useState({
+    totalHama: 0,
     totalPenyakit: 0,
+    totalHamaPenyakit: 0,
     totalGejala: 0,
     totalRules: 0,
     totalUsers: 0,
@@ -30,8 +32,13 @@ export const AdminDashboard = () => {
         fetchHasilDiagnosa()
       ]);
       
+      const totalHama = penyakit.filter((p: any) => p.tipe === 'hama').length;
+      const totalPenyakit = penyakit.filter((p: any) => p.tipe === 'penyakit').length;
+
       setStats({
-        totalPenyakit: penyakit.length,
+        totalHama,
+        totalPenyakit,
+        totalHamaPenyakit: penyakit.length,
         totalGejala: gejala.length,
         totalRules: rules.length,
         totalUsers: users.filter(u => u.role === 'user').length,
@@ -48,8 +55,9 @@ export const AdminDashboard = () => {
 
   const statCards = [
     {
-      title: 'Total Penyakit',
-      value: stats.totalPenyakit,
+      title: 'Hama & Penyakit',
+      value: stats.totalHamaPenyakit,
+      sub: `${stats.totalHama} Hama, ${stats.totalPenyakit} Penyakit`,
       icon: Sprout,
       color: 'text-pink-600',
       bgColor: 'bg-pink-50'
@@ -99,7 +107,7 @@ export const AdminDashboard = () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard Admin</h1>
         <p className="text-gray-500">
-          Sistem Pakar Buah Naga - Forward Chaining + Certainty Factor
+          Sistem Pakar Buah Naga - Diagnosa Hama & Penyakit (Forward Chaining + Certainty Factor)
         </p>
       </div>
 
@@ -112,6 +120,7 @@ export const AdminDashboard = () => {
                 <div>
                   <p className="text-sm text-gray-500 mb-1">{card.title}</p>
                   <p className="text-3xl font-bold text-gray-900">{card.value}</p>
+                  {card.sub && <p className="text-xs text-gray-400 mt-1">{card.sub}</p>}
                 </div>
                 <div className={`w-12 h-12 ${card.bgColor} rounded-xl flex items-center justify-center`}>
                   <card.icon className={`w-6 h-6 ${card.color}`} />
@@ -135,20 +144,20 @@ export const AdminDashboard = () => {
           <CardContent className="space-y-4">
             <p className="text-gray-600 text-sm">
               Forward Chaining adalah metode penalaran yang dimulai dari <strong>fakta</strong> (gejala) 
-              menuju <strong>kesimpulan</strong> (penyakit). Sistem mencocokkan gejala yang dipilih user 
-              dengan rules untuk menemukan penyakit yang sesuai.
+              menuju <strong>kesimpulan</strong> (hama & penyakit). Sistem mencocokkan gejala yang dipilih user 
+              dengan rules untuk menemukan hama atau penyakit yang sesuai.
             </p>
             <div className="bg-blue-50 rounded-lg p-4">
               <h4 className="font-semibold text-blue-900 mb-2 text-sm">Alur Kerja:</h4>
               <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
                 <li>User menjawab pertanyaan gejala (Ya/Tidak)</li>
                 <li>Sistem cocokkan gejala dengan rules (IF)</li>
-                <li>Rules yang cocok menghasilkan penyakit (THEN)</li>
-                <li>Dapatkan daftar penyakit yang terdeteksi</li>
+                <li>Rules yang cocok menghasilkan hama/penyakit (THEN)</li>
+                <li>Dapatkan daftar hama/penyakit yang terdeteksi</li>
               </ol>
             </div>
             <div className="text-sm text-gray-500 font-mono bg-gray-50 rounded p-3">
-              <p><strong>IF</strong> Gejala A <strong>AND</strong> Gejala B <strong>THEN</strong> Penyakit X</p>
+              <p><strong>IF</strong> Gejala A <strong>AND</strong> Gejala B <strong>THEN</strong> Hama/Penyakit X</p>
             </div>
           </CardContent>
         </Card>
@@ -244,8 +253,8 @@ export const AdminDashboard = () => {
             >
               <Sprout className="w-6 h-6 text-pink-600" />
               <div>
-                <p className="font-medium text-gray-900">Kelola Penyakit</p>
-                <p className="text-sm text-gray-500">{stats.totalPenyakit} penyakit</p>
+                <p className="font-medium text-gray-900">Kelola Hama & Penyakit</p>
+                <p className="text-sm text-gray-500">{stats.totalHamaPenyakit} data ({stats.totalHama} Hama, {stats.totalPenyakit} Penyakit)</p>
               </div>
             </a>
             <a 
