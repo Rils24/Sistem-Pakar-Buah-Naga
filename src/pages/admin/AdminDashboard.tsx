@@ -112,18 +112,18 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {statCards.map((card, index) => (
           <Card key={index} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">{card.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{card.value}</p>
-                  {card.sub && <p className="text-xs text-gray-400 mt-1">{card.sub}</p>}
+                  <p className="text-xs sm:text-sm text-gray-500 mb-1">{card.title}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">{card.value}</p>
+                  {card.sub && <p className="text-[11px] sm:text-xs text-gray-400 mt-1">{card.sub}</p>}
                 </div>
-                <div className={`w-12 h-12 ${card.bgColor} rounded-xl flex items-center justify-center`}>
-                  <card.icon className={`w-6 h-6 ${card.color}`} />
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 ${card.bgColor} rounded-xl flex items-center justify-center shrink-0`}>
+                  <card.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${card.color}`} />
                 </div>
               </div>
             </CardContent>
@@ -246,7 +246,7 @@ export const AdminDashboard = () => {
           <CardTitle>Akses Cepat</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <a 
               href="#/admin/penyakit"
               className="flex items-center gap-3 p-4 bg-pink-50 rounded-lg hover:bg-pink-100 transition-colors"

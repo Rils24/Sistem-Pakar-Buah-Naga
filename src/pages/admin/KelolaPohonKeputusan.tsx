@@ -564,7 +564,7 @@ export const KelolaPohonKeputusan = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* YA Target */}
                   <div className="space-y-1">
                     <Label htmlFor="ya_target">
@@ -639,7 +639,7 @@ export const KelolaPohonKeputusan = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Hasil Terminal */}
                   <div className="space-y-1">
                     <Label htmlFor="hasil">
