@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ import {
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { User } from '@/types';
+import type { User, HasilDiagnosa, Penyakit } from '@/types';
 
 interface RiwayatProps {
   user: User;
@@ -44,21 +44,17 @@ interface RiwayatProps {
 
 export const Riwayat = ({ user }: RiwayatProps) => {
   const navigate = useNavigate();
-  const [riwayatList, setRiwayatList] = useState<any[]>([]);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [riwayatList, setRiwayatList] = useState<HasilDiagnosa[]>([]);
+  const [selectedItem, setSelectedItem] = useState<HasilDiagnosa | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<HasilDiagnosa | null>(null);
   const [deleteAllConfirm, setDeleteAllConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [penyakitList, setPenyakitList] = useState<any[]>([]);
+  const [penyakitList, setPenyakitList] = useState<Penyakit[]>([]);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  useEffect(() => {
-    loadData();
-  }, [user.id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [data, pData] = await Promise.all([
@@ -69,12 +65,17 @@ export const Riwayat = ({ user }: RiwayatProps) => {
       setPenyakitList(pData);
     } catch (err) {
       console.error('Gagal memuat riwayat:', err);
+      toast.error('Gagal memuat riwayat diagnosa');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user.id]);
 
-  const handleDelete = async (item: any) => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleDelete = async (item: HasilDiagnosa) => {
     try {
       setDeleting(true);
       await deleteHasilDiagnosa(item.id);
@@ -160,7 +161,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
         )}
       </div>
 
-      {/* List */}
+      {/* List Riwayat */}
       {riwayatList.length > 0 ? (
         <div className="space-y-3">
           {riwayatList.map((item, index) => {
@@ -200,7 +201,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                       </div>
                     </div>
 
-                    {/* CF Badge */}
+                    {/* CF Badge & Actions */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <div className="text-right">
                         <p className="text-2xl font-bold text-pink-600">
@@ -211,7 +212,6 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                         </span>
                       </div>
 
-                      {/* Actions */}
                       <div className="flex flex-col gap-1.5">
                         <Button
                           variant="ghost"
@@ -264,9 +264,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
         </Card>
       )}
 
-      {/* ============================================================ */}
       {/* DETAIL DIALOG */}
-      {/* ============================================================ */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
         <DialogContent
           className="max-w-2xl max-h-[90vh] overflow-y-auto p-0"
@@ -344,8 +342,8 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                   </h4>
                   <div className="space-y-2">
                     {[...selectedItem.hasil_cf]
-                      .sort((a: any, b: any) => b.cf_value - a.cf_value)
-                      .map((r: any, idx: number) => (
+                      .sort((a, b) => b.cf_value - a.cf_value)
+                      .map((r, idx) => (
                         <div key={r.penyakit_id || idx} className={`rounded-xl p-3 border ${
                           idx === 0 ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-100'
                         }`}>
@@ -389,7 +387,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                     </span>
                   </h4>
                   <div className="space-y-2">
-                    {selectedItem.gejala_dipilih.map((g: any, idx: number) => (
+                    {selectedItem.gejala_dipilih.map((g, idx) => (
                       <div 
                         key={idx}
                         className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
@@ -419,7 +417,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                     Rekomendasi Solusi
                   </h4>
                   <div className="space-y-2">
-                    {selectedItem.solusi.map((s: string, idx: number) => (
+                    {selectedItem.solusi.map((s, idx) => (
                       <div key={idx} className="flex items-start gap-3 p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-100">
                         <span className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                           {idx + 1}
@@ -434,7 +432,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
               {/* Gambar Penyakit dari database */}
               {(() => {
                 const penyakitId = selectedItem?.penyakit_terpilih;
-                const penyakit = penyakitList.find((p: any) => p.id === penyakitId);
+                const penyakit = penyakitList.find(p => p.id === penyakitId);
                 if (!penyakit?.image_urls?.length) return null;
                 return (
                   <div>
@@ -446,9 +444,9 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                       <span className="ml-auto text-xs text-gray-400 font-normal">{penyakit.image_urls.length} gambar</span>
                     </h4>
                     <div className="grid grid-cols-3 gap-2">
-                      {penyakit.image_urls.map((url: string, idx: number) => (
+                      {penyakit.image_urls.map((url, idx) => (
                         <button key={idx}
-                          onClick={() => { setPreviewImages(penyakit.image_urls); setPreviewIndex(idx); }}
+                          onClick={() => { setPreviewImages(penyakit.image_urls || []); setPreviewIndex(idx); }}
                           className="relative group aspect-[4/3] rounded-lg overflow-hidden border border-gray-200 hover:border-pink-300 transition-all">
                           <img src={url} alt={`${penyakit.nama} - ${idx+1}`} className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -461,7 +459,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                 );
               })()}
 
-              {/* Actions di dialog */}
+              {/* Action delete single */}
               <div className="flex gap-3 pt-2 border-t border-gray-100">
                 <Button
                   variant="outline"
@@ -481,9 +479,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* ============================================================ */}
       {/* DELETE SINGLE CONFIRMATION */}
-      {/* ============================================================ */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -514,9 +510,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ============================================================ */}
       {/* DELETE ALL CONFIRMATION */}
-      {/* ============================================================ */}
       <AlertDialog open={deleteAllConfirm} onOpenChange={setDeleteAllConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -546,7 +540,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Image Preview - Nested Dialog so Radix manages focus/pointer-events correctly */}
+      {/* Image Preview Modal */}
       <Dialog open={previewImages.length > 0} onOpenChange={(open) => { if (!open) setPreviewImages([]); }}>
         <DialogContent
           className="max-w-4xl w-auto bg-transparent border-none shadow-none p-0 [&>button]:hidden"

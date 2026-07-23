@@ -134,3 +134,38 @@ export interface CFResult {
     rumus: string;
   }[];
 }
+
+// Interface untuk node Pohon Keputusan (Decision Tree)
+export interface PohonKeputusanNode {
+  id: string;
+  gejalaId: string;
+  kodeGejala: string;
+  namaGejala: string;
+  deskripsi?: string;
+  ya: string;
+  tidak: string;
+  hasil?: string | null;
+  cfPakar: number;
+}
+
+// Interface untuk recording jawaban user dalam Pohon Keputusan
+export interface JawabanDiagnosa {
+  nodeId: string;
+  gejalaId: string;
+  kodeGejala: string;
+  namaGejala: string;
+  jawaban: 'ya' | 'tidak';
+  cfPakar: number;
+}
+
+// Interface untuk rincian perhitungan step-by-step Certainty Factor
+export interface DetailPerhitunganCFItem {
+  step: number;
+  gejalaNama: string;
+  cfUser: number;
+  cfPakar: number;
+  cfHasil: number;
+  cfKombinasi: number;
+  rumus: string;
+}
+

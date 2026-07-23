@@ -12,6 +12,11 @@ interface ProfilProps {
   onUpdate: (data: Partial<UserType>) => Promise<{ success: boolean; message: string }>;
 }
 
+interface FeedbackMessage {
+  type: 'success' | 'error' | '';
+  text: string;
+}
+
 export const Profil = ({ user, onUpdate }: ProfilProps) => {
   const [formData, setFormData] = useState({
     nama: user.nama,
@@ -22,8 +27,8 @@ export const Profil = ({ user, onUpdate }: ProfilProps) => {
     newPassword: '',
     confirmPassword: ''
   });
-  const [message, setMessage] = useState({ type: '', text: '' });
-  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
+  const [message, setMessage] = useState<FeedbackMessage>({ type: '', text: '' });
+  const [passwordMessage, setPasswordMessage] = useState<FeedbackMessage>({ type: '', text: '' });
   const [saving, setSaving] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
@@ -32,14 +37,17 @@ export const Profil = ({ user, onUpdate }: ProfilProps) => {
     setMessage({ type: '', text: '' });
     setSaving(true);
 
-    const result = await onUpdate(formData);
-    
-    if (result.success) {
-      setMessage({ type: 'success', text: result.message });
-    } else {
-      setMessage({ type: 'error', text: result.message });
+    try {
+      const result = await onUpdate(formData);
+      setMessage({
+        type: result.success ? 'success' : 'error',
+        text: result.message
+      });
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Terjadi kesalahan saat memperbarui profil' });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -65,15 +73,19 @@ export const Profil = ({ user, onUpdate }: ProfilProps) => {
       return;
     }
 
-    const result = await onUpdate({ password: passwordData.newPassword });
-    
-    if (result.success) {
-      setPasswordMessage({ type: 'success', text: 'Password berhasil diubah' });
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } else {
-      setPasswordMessage({ type: 'error', text: result.message });
+    try {
+      const result = await onUpdate({ password: passwordData.newPassword });
+      if (result.success) {
+        setPasswordMessage({ type: 'success', text: 'Password berhasil diubah' });
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        setPasswordMessage({ type: 'error', text: result.message });
+      }
+    } catch (error) {
+      setPasswordMessage({ type: 'error', text: 'Terjadi kesalahan saat mengubah password' });
+    } finally {
+      setSavingPassword(false);
     }
-    setSavingPassword(false);
   };
 
   return (
@@ -90,7 +102,7 @@ export const Profil = ({ user, onUpdate }: ProfilProps) => {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Profile Info */}
+        {/* Profile Info Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -182,7 +194,7 @@ export const Profil = ({ user, onUpdate }: ProfilProps) => {
           </CardContent>
         </Card>
 
-        {/* Change Password */}
+        {/* Password Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

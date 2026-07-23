@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,29 +13,34 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import type { User } from '@/types';
+import type { User, Penyakit, HasilDiagnosa } from '@/types';
 
 interface UserDashboardProps {
   user: User;
 }
 
+interface DashboardStats {
+  totalDiagnosa: number;
+  totalHama: number;
+  totalPenyakit: number;
+  totalHamaPenyakit: number;
+  totalGejala: number;
+  diagnosaTerakhir: HasilDiagnosa | null;
+}
+
 export const UserDashboard = ({ user }: UserDashboardProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalDiagnosa: 0,
     totalHama: 0,
     totalPenyakit: 0,
     totalHamaPenyakit: 0,
     totalGejala: 0,
-    diagnosaTerakhir: null as any
+    diagnosaTerakhir: null
   });
 
-  useEffect(() => {
-    loadData();
-  }, [user.id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [riwayat, penyakit, gejala] = await Promise.all([
@@ -44,8 +49,8 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
         fetchGejala()
       ]);
       
-      const totalHama = penyakit.filter((p: any) => p.tipe === 'hama').length;
-      const totalPenyakit = penyakit.filter((p: any) => p.tipe === 'penyakit').length;
+      const totalHama = penyakit.filter((p: Penyakit) => p.tipe === 'hama').length;
+      const totalPenyakit = penyakit.filter((p: Penyakit) => p.tipe === 'penyakit').length;
 
       setStats({
         totalDiagnosa: riwayat.length,
@@ -60,7 +65,11 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   if (loading) {
     return (
@@ -73,7 +82,7 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome */}
+      {/* Welcome Header */}
       <div className="bg-gradient-to-r from-pink-600 to-rose-600 rounded-2xl p-6 sm:p-8 text-white">
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">
           Selamat Datang, {user.nama}!
@@ -85,8 +94,10 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
-          onClick={() => navigate('/user/diagnosa')}>
+        <Card 
+          className="border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+          onClick={() => navigate('/user/diagnosa')}
+        >
           <CardContent className="p-6 sm:p-8">
             <div className="flex items-start justify-between">
               <div>
@@ -108,8 +119,10 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
-          onClick={() => navigate('/user/riwayat')}>
+        <Card 
+          className="border-0 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+          onClick={() => navigate('/user/riwayat')}
+        >
           <CardContent className="p-6 sm:p-8">
             <div className="flex items-start justify-between">
               <div>
@@ -132,7 +145,7 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
         </Card>
       </div>
 
-      {/* Stats */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardContent className="p-4 sm:p-6">
@@ -191,7 +204,7 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
         </Card>
       </div>
 
-      {/* Last Diagnosa */}
+      {/* Diagnosa Terakhir */}
       {stats.diagnosaTerakhir && (
         <Card>
           <CardHeader>
@@ -240,7 +253,7 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
         </Card>
       )}
 
-      {/* Info */}
+      {/* Info Method */}
       <div className="bg-blue-50 rounded-lg p-6">
         <h4 className="font-semibold text-blue-900 mb-2">
           Tentang Metode Certainty Factor
