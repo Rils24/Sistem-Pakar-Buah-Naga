@@ -26,6 +26,14 @@ import {
   fetchPenyakit,
 } from "@/services/supabaseService";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   FileText,
   Search,
   Calendar,
@@ -45,6 +53,10 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Printer,
+  FileSpreadsheet,
+  FileCode,
+  ChevronDown,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { toast } from "sonner";
@@ -66,6 +78,10 @@ export const LaporanDiagnosa = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
+
+  // Print state
+  const [printTarget, setPrintTarget] = useState<"all" | "filtered" | "selected" | "single" | null>(null);
+  const [singlePrintItem, setSinglePrintItem] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -194,6 +210,7 @@ export const LaporanDiagnosa = () => {
     penyakitCount[nama] = (penyakitCount[nama] || 0) + 1;
   });
   const topPenyakit = Object.entries(penyakitCount).sort((a, b) => b[1] - a[1]);
+  const maxCount = topPenyakit.length > 0 ? topPenyakit[0][1] : 1;
 
   const getStatusColor = (cf: number) => {
     if (cf >= 0.9) return "bg-green-50 text-green-700 border-green-200";
@@ -210,42 +227,145 @@ export const LaporanDiagnosa = () => {
     return "Tidak Yakin";
   };
 
-  // Export CSV
-  const handleExportCSV = () => {
-    if (filteredList.length === 0) {
+  // Helper Escape CSV (RFC 4180)
+  const escapeCSV = (val: any): string => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  // Helper filter target data for export/print
+  const getExportData = (target: "all" | "filtered" | "selected") => {
+    if (target === "selected") {
+      return laporanList.filter((item) => selectedIds.includes(item.id));
+    }
+    if (target === "filtered") {
+      return filteredList;
+    }
+    return laporanList;
+  };
+
+  // Export CSV dengan UTF-8 BOM dan escaping lengkap
+  const handleExportCSV = (target: "all" | "filtered" | "selected" = "filtered") => {
+    const dataToExport = getExportData(target);
+    if (dataToExport.length === 0) {
       toast.error("Tidak ada data untuk diekspor");
       return;
     }
+
     const headers = [
       "No",
-      "Tanggal",
+      "ID Laporan",
+      "Tanggal Diagnosa",
+      "Waktu",
       "Nama User",
       "Hasil Diagnosa",
-      "CF (%)",
-      "Gejala",
+      "Certainty Factor (CF %)",
+      "Kategori Keyakinan",
+      "Jumlah Gejala",
+      "Daftar Gejala",
+      "Solusi / Penanganan",
     ];
-    const rows = filteredList.map((item, idx) => {
+
+    const rows = dataToExport.map((item, idx) => {
       const gejalaNames = (item.gejala_dipilih || [])
         .map((g: any) => g.nama_gejala)
         .join("; ");
+      const solusiList = (item.solusi || []).join("; ");
+      const dateObj = new Date(item.tanggal);
+      const tanggalStr = dateObj.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      });
+      const waktuStr = dateObj.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const cfPercent = Math.round((item.cf_tertinggi || 0) * 100);
+      const cfLabel = getCFLabel(item.cf_tertinggi || 0);
+      const penyakitName =
+        item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-";
+      const userName = userMap[item.user_id] || "Unknown User";
+
       return [
         idx + 1,
-        new Date(item.tanggal).toLocaleDateString("id-ID"),
-        userMap[item.user_id] || item.user_id,
-        item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-",
-        Math.round((item.cf_tertinggi || 0) * 100),
-        `"${gejalaNames}"`,
+        escapeCSV(item.id),
+        escapeCSV(tanggalStr),
+        escapeCSV(waktuStr),
+        escapeCSV(userName),
+        escapeCSV(penyakitName),
+        `${cfPercent}%`,
+        escapeCSV(cfLabel),
+        item.gejala_dipilih?.length || 0,
+        escapeCSV(gejalaNames),
+        escapeCSV(solusiList),
       ].join(",");
     });
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+
+    // Masukkan UTF-8 BOM \uFEFF agar Microsoft Excel membaca format karakter & separator dengan sempurna
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `laporan_diagnosa_${new Date().toISOString().slice(0, 10)}.csv`;
+    const label = target === "selected" ? "terpilih" : target === "filtered" ? "terfilter" : "semua";
+    a.download = `laporan_diagnosa_${label}_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Laporan berhasil diekspor");
+    toast.success(`Berhasil mengekspor ${dataToExport.length} data laporan ke CSV`);
+  };
+
+  // Export JSON
+  const handleExportJSON = (target: "all" | "filtered" | "selected" = "filtered") => {
+    const dataToExport = getExportData(target);
+    if (dataToExport.length === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
+    const formattedData = dataToExport.map((item) => ({
+      id: item.id,
+      tanggal: item.tanggal,
+      user_id: item.user_id,
+      nama_user: userMap[item.user_id] || "Unknown",
+      hasil_diagnosa: item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-",
+      cf_tertinggi: item.cf_tertinggi,
+      cf_persentase: `${Math.round((item.cf_tertinggi || 0) * 100)}%`,
+      kategori_cf: getCFLabel(item.cf_tertinggi || 0),
+      gejala_dipilih: item.gejala_dipilih || [],
+      hasil_cf: item.hasil_cf || [],
+      solusi: item.solusi || [],
+    }));
+
+    const jsonStr = JSON.stringify(formattedData, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const label = target === "selected" ? "terpilih" : target === "filtered" ? "terfilter" : "semua";
+    a.download = `laporan_diagnosa_${label}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Berhasil mengekspor ${dataToExport.length} data laporan ke JSON`);
+  };
+
+  // Print / Cetak PDF
+  const handlePrint = (target: "all" | "filtered" | "selected" | "single", item?: any) => {
+    if (target === "single" && item) {
+      setSinglePrintItem(item);
+      setPrintTarget("single");
+    } else {
+      const dataToPrint = getExportData(target as "all" | "filtered" | "selected");
+      if (dataToPrint.length === 0) {
+        toast.error("Tidak ada data untuk dicetak");
+        return;
+      }
+      setPrintTarget(target);
+      setSinglePrintItem(null);
+    }
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   if (loading) {
@@ -260,24 +380,90 @@ export const LaporanDiagnosa = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Laporan Diagnosa</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Semua hasil diagnosa dari seluruh user
-          </p>
+    <>
+      <div className="max-w-7xl mx-auto space-y-6 print:hidden">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Laporan Diagnosa</h1>
+            <p className="text-gray-400 text-sm mt-1">
+              Semua hasil diagnosa dari seluruh user
+            </p>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 shadow-sm self-start sm:self-auto"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export / Cetak Laporan</span>
+                {selectedIds.length > 0 && (
+                  <span className="ml-1 bg-emerald-800 text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full">
+                    {selectedIds.length}
+                  </span>
+                )}
+                <ChevronDown className="w-3.5 h-3.5 opacity-80" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60">
+              {selectedIds.length > 0 && (
+                <>
+                  <DropdownMenuLabel className="text-xs font-semibold text-emerald-700 bg-emerald-50/80 py-1.5 px-2 rounded">
+                    Item Terpilih ({selectedIds.length})
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => handleExportCSV("selected")}>
+                    <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
+                    Export CSV (Terpilih)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrint("selected")}>
+                    <Printer className="w-4 h-4 mr-2 text-blue-600" />
+                    Cetak PDF / Print (Terpilih)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExportJSON("selected")}>
+                    <FileCode className="w-4 h-4 mr-2 text-amber-600" />
+                    Export JSON (Terpilih)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
+              <DropdownMenuLabel className="text-xs font-semibold text-gray-500">
+                {searchQuery || filterTanggal ? "Data Terfilter" : "Semua Data"} ({filteredList.length})
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleExportCSV("filtered")}>
+                <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
+                Export CSV ({searchQuery || filterTanggal ? "Terfilter" : "Semua"})
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePrint("filtered")}>
+                <Printer className="w-4 h-4 mr-2 text-blue-600" />
+                Cetak PDF / Print ({searchQuery || filterTanggal ? "Terfilter" : "Semua"})
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportJSON("filtered")}>
+                <FileCode className="w-4 h-4 mr-2 text-amber-600" />
+                Export JSON ({searchQuery || filterTanggal ? "Terfilter" : "Semua"})
+              </DropdownMenuItem>
+
+              {(searchQuery || filterTanggal) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs font-semibold text-gray-500">
+                    Semua Data Total ({laporanList.length})
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => handleExportCSV("all")}>
+                    <FileSpreadsheet className="w-4 h-4 mr-2 text-gray-600" />
+                    Export CSV (Semua {laporanList.length})
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handlePrint("all")}>
+                    <Printer className="w-4 h-4 mr-2 text-gray-600" />
+                    Cetak PDF / Print (Semua {laporanList.length})
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        <Button
-          onClick={handleExportCSV}
-          size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700 self-start sm:self-auto"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
-        </Button>
-      </div>
 
       {/* Statistik Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -346,40 +532,82 @@ export const LaporanDiagnosa = () => {
         </Card>
       </div>
 
-      {/* Penyakit Terbanyak */}
+      {/* Penyakit Terbanyak (Clean Minimal Grid) */}
       {topPenyakit.length > 0 && (
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md bg-white overflow-hidden">
           <CardContent className="p-5">
-            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 text-sm">
-              <span className="w-7 h-7 bg-rose-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-rose-600" />
-              </span>
-              Hama/Penyakit Paling Sering Terdeteksi
-            </h3>
-            <div className="space-y-2">
-              {topPenyakit.slice(0, 5).map(([nama, count], idx) => (
-                <div key={nama} className="flex items-center gap-3">
-                  <span className="w-7 h-7 bg-pink-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    {idx + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-800 truncate">
-                        {nama}
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-pink-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">
+                    Hama & Penyakit Sering Terdeteksi
+                  </h3>
+                  <p className="text-xs text-gray-400">
+                    Rekapitulasi {totalDiagnosa} diagnosa user
+                  </p>
+                </div>
+              </div>
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchQuery("")}
+                  className="text-xs text-gray-500 hover:text-pink-600 h-7 px-2.5"
+                >
+                  <X className="w-3.5 h-3.5 mr-1" /> Reset Filter
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {topPenyakit.slice(0, 4).map(([nama, count], idx) => {
+                const isSelected = searchQuery.toLowerCase() === nama.toLowerCase();
+                const relativePercent = Math.round((count / maxCount) * 100);
+                const totalPercent = Math.round((count / (totalDiagnosa || 1)) * 100);
+
+                return (
+                  <div
+                    key={nama}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSearchQuery("");
+                      } else {
+                        setSearchQuery(nama);
+                        setCurrentPage(1);
+                      }
+                    }}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-pink-50/60 border-pink-300 shadow-xs"
+                        : "bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-[11px] font-bold text-gray-400 font-mono">
+                        #{idx + 1}
                       </span>
-                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                        {count} kali
+                      <span className="text-xs text-gray-600 font-medium">
+                        <strong className="text-gray-900">{count}</strong> kali{" "}
+                        <span className="text-gray-400 text-[11px]">({totalPercent}%)</span>
                       </span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
+
+                    <h4 className="font-semibold text-gray-900 text-sm truncate mb-2.5">
+                      {nama}
+                    </h4>
+
+                    <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-pink-400 to-rose-500 h-2 rounded-full transition-all"
-                        style={{ width: `${(count / totalDiagnosa) * 100}%` }}
+                        className="bg-pink-500 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${relativePercent}%` }}
                       />
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -848,7 +1076,17 @@ export const LaporanDiagnosa = () => {
               })()}
 
               {/* Actions */}
-              <div className="flex gap-3 pt-2 border-t border-gray-100">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint("single", selectedItem)}
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Cetak Detail (PDF)
+                </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -1000,5 +1238,209 @@ export const LaporanDiagnosa = () => {
         </div>
       )}
     </div>
+
+    {/* ============================================================ */}
+    {/* PRINTABLE TEMPLATE (PDF / PRINT VIEW) */}
+    {/* ============================================================ */}
+    <div className="hidden print:block print:w-full print:p-6 print:text-black font-sans bg-white">
+      {printTarget === "single" && singlePrintItem ? (
+        /* SINGLE DIAGNOSIS ITEM PRINT SHEET */
+        <div className="space-y-6">
+          <div className="border-b-2 border-gray-800 pb-4 text-center">
+            <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">
+              SISTEM PAKAR DIAGNOSA HAMA & PENYAKIT TANAMAN BUAH NAGA
+            </h1>
+            <h2 className="text-base font-semibold text-gray-700 mt-1">
+              SURAT HASIL DIAGNOSA KELOLA ADMIN
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              ID Laporan: {singlePrintItem.id} | Tanggal: {new Date(singlePrintItem.tanggal).toLocaleString('id-ID')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-lg border border-gray-300">
+            <div>
+              <p className="text-gray-500 font-medium uppercase">NAMA USER / PETANI</p>
+              <p className="font-semibold text-gray-900 text-sm">{userMap[singlePrintItem.user_id] || singlePrintItem.user_id}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 font-medium uppercase">TANGGAL DIAGNOSA</p>
+              <p className="font-semibold text-gray-900 text-sm">
+                {new Date(singlePrintItem.tanggal).toLocaleDateString('id-ID', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </p>
+            </div>
+          </div>
+
+          {/* Result Box */}
+          <div className="p-4 border-2 border-pink-500 bg-pink-50/50 rounded-xl">
+            <p className="text-xs font-bold text-pink-700 uppercase">Hasil Diagnosa Utama</p>
+            <div className="flex justify-between items-center mt-1">
+              <h3 className="text-xl font-bold text-gray-900">
+                {singlePrintItem.nama_penyakit_terpilih || singlePrintItem.hasil_cf?.[0]?.nama_penyakit}
+              </h3>
+              <div className="text-right">
+                <span className="text-3xl font-extrabold text-pink-600">
+                  {Math.round((singlePrintItem.cf_tertinggi || 0) * 100)}%
+                </span>
+                <p className="text-xs font-semibold text-gray-600">{getCFLabel(singlePrintItem.cf_tertinggi || 0)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Gejala */}
+          <div>
+            <h4 className="font-bold text-gray-900 text-xs border-b border-gray-400 pb-1 mb-2">
+              GEJALA YANG TERIDENTIFIKASI ({singlePrintItem.gejala_dipilih?.length || 0})
+            </h4>
+            <table className="w-full text-xs border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100 border-b border-gray-300 text-left">
+                  <th className="p-2 w-10 border-r border-gray-300 text-center">No</th>
+                  <th className="p-2 border-r border-gray-300">Nama Gejala</th>
+                  <th className="p-2 w-24">CF Pakar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(singlePrintItem.gejala_dipilih || []).map((g: any, idx: number) => (
+                  <tr key={idx} className="border-b border-gray-200">
+                    <td className="p-2 border-r border-gray-200 text-center font-mono">{idx + 1}</td>
+                    <td className="p-2 border-r border-gray-200">{g.nama_gejala}</td>
+                    <td className="p-2 font-mono">{g.cf_pakar}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Solusi */}
+          {singlePrintItem.solusi && singlePrintItem.solusi.length > 0 && (
+            <div>
+              <h4 className="font-bold text-gray-900 text-xs border-b border-gray-400 pb-1 mb-2">
+                REKOMENDASI PENANGANAN / SOLUSI
+              </h4>
+              <ol className="list-decimal list-inside text-xs space-y-1 pl-1">
+                {singlePrintItem.solusi.map((s: string, idx: number) => (
+                  <li key={idx} className="text-gray-800 leading-relaxed">
+                    {s}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Sign-off */}
+          <div className="pt-10 flex justify-between text-xs text-gray-600">
+            <div>
+              <p>Dicetak secara otomatis oleh System</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Sistem Pakar Buah Naga © {new Date().getFullYear()}</p>
+            </div>
+            <div className="text-center w-48 border-t border-gray-400 pt-2 mt-12">
+              <p className="font-semibold text-gray-800">Admin / Pakar Sistem</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* MULTIPLE/TABLE REPORTS PRINT SHEET */
+        <div className="space-y-6">
+          <div className="border-b-2 border-gray-900 pb-3 text-center">
+            <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">
+              SISTEM PAKAR DIAGNOSA HAMA & PENYAKIT TANAMAN BUAH NAGA
+            </h1>
+            <h2 className="text-base font-semibold text-gray-700 mt-0.5">
+              REKAPITULASI LAPORAN HASIL DIAGNOSA USER
+            </h2>
+            <div className="flex justify-between items-center text-xs text-gray-500 mt-2 px-2">
+              <span>Dicetak pada: {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+              <span>Jumlah Record: {getExportData((printTarget as any) || "filtered").length} Laporan</span>
+            </div>
+          </div>
+
+          {/* Summary Box */}
+          <div className="grid grid-cols-4 gap-3 text-center bg-gray-50 p-3 rounded-lg border border-gray-300 text-xs">
+            <div>
+              <p className="text-gray-500 font-medium">Total Diagnosa</p>
+              <p className="text-lg font-bold text-gray-900">{getExportData((printTarget as any) || "filtered").length}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 font-medium">User Unik</p>
+              <p className="text-lg font-bold text-gray-900">
+                {new Set(getExportData((printTarget as any) || "filtered").map((i) => i.user_id)).size}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500 font-medium">Rata-rata CF</p>
+              <p className="text-lg font-bold text-gray-900">
+                {Math.round(
+                  (getExportData((printTarget as any) || "filtered").reduce((s, i) => s + (i.cf_tertinggi || 0), 0) /
+                    (getExportData((printTarget as any) || "filtered").length || 1)) * 100
+                )}%
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500 font-medium">Status Filter</p>
+              <p className="text-xs font-semibold text-gray-800 mt-1">
+                {filterTanggal ? `Tanggal: ${filterTanggal}` : searchQuery ? `Search: "${searchQuery}"` : "Semua Data"}
+              </p>
+            </div>
+          </div>
+
+          {/* Table */}
+          <table className="w-full text-xs border-collapse border border-gray-400">
+            <thead>
+              <tr className="bg-gray-200 text-gray-900 font-bold border-b border-gray-400">
+                <th className="border border-gray-400 p-2 text-center w-8">No</th>
+                <th className="border border-gray-400 p-2 text-left w-24">Tanggal</th>
+                <th className="border border-gray-400 p-2 text-left w-32">Nama User</th>
+                <th className="border border-gray-400 p-2 text-left">Hasil Diagnosa</th>
+                <th className="border border-gray-400 p-2 text-center w-16">CF (%)</th>
+                <th className="border border-gray-400 p-2 text-left">Gejala Terdeteksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {getExportData((printTarget as any) || "filtered").map((item, idx) => (
+                <tr key={item.id || idx} className="border-b border-gray-300">
+                  <td className="border border-gray-300 p-2 text-center font-mono">{idx + 1}</td>
+                  <td className="border border-gray-300 p-2">
+                    {new Date(item.tanggal).toLocaleDateString('id-ID', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    })}
+                  </td>
+                  <td className="border border-gray-300 p-2 font-medium">
+                    {userMap[item.user_id] || "Unknown"}
+                  </td>
+                  <td className="border border-gray-300 p-2 font-semibold">
+                    {item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-"}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-center font-bold">
+                    {Math.round((item.cf_tertinggi || 0) * 100)}%
+                  </td>
+                  <td className="border border-gray-300 p-2 text-[11px] leading-tight">
+                    {(item.gejala_dipilih || []).map((g: any) => g.nama_gejala).join(", ")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Signature */}
+          <div className="pt-8 flex justify-between text-xs text-gray-600">
+            <div>
+              <p>Catatan: Dokumen ini dicetak untuk keperluan arsip/laporan administrasi.</p>
+            </div>
+            <div className="text-center w-52 border-t border-gray-400 pt-2 mt-10">
+              <p className="font-semibold text-gray-900">Admin Pengelola Laporan</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+    </>
   );
 };

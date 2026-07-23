@@ -36,9 +36,14 @@ import {
   Shield,
   Loader2,
   AlertTriangle,
+  UserPlus,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   fetchUsers,
+  fetchUserByEmail,
+  insertUser,
   updateUser,
   deleteUserById,
 } from "@/services/supabaseService";
@@ -60,9 +65,12 @@ export const KelolaUsers = () => {
   const [deleting, setDeleting] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   const [formData, setFormData] = useState({
     nama: "",
     email: "",
+    password: "",
     role: "user" as "admin" | "user",
   });
 
@@ -109,13 +117,27 @@ export const KelolaUsers = () => {
     (id) => usersList.find((u) => u.id === id)?.role !== "admin",
   ).length;
 
+  const handleAddUser = () => {
+    setEditingUser(null);
+    setFormData({
+      nama: "",
+      email: "",
+      password: "",
+      role: "user",
+    });
+    setShowPassword(false);
+    setIsDialogOpen(true);
+  };
+
   const handleEdit = (user: UserType) => {
     setEditingUser(user);
     setFormData({
       nama: user.nama,
       email: user.email,
+      password: "",
       role: user.role,
     });
+    setShowPassword(false);
     setIsDialogOpen(true);
   };
 
@@ -190,16 +212,48 @@ export const KelolaUsers = () => {
     setSaving(true);
 
     try {
-      if (editingUser) {
-        const updated = await updateUser(editingUser.id, formData);
-        setUsersList(
-          usersList.map((u) => (u.id === editingUser.id ? updated : u)),
+      if (!editingUser) {
+        // Tambah User Baru
+        const cleanEmail = formData.email.trim().toLowerCase();
+        const existing = await fetchUserByEmail(cleanEmail);
+        if (existing) {
+          toast.error("Email tersebut sudah terdaftar dalam sistem");
+          setSaving(false);
+          return;
+        }
+
+        const newUser: UserType = {
+          id: `u${Date.now()}`,
+          nama: formData.nama.trim(),
+          email: cleanEmail,
+          password: formData.password,
+          role: formData.role,
+          created_at: new Date().toISOString(),
+        };
+
+        const created = await insertUser(newUser);
+        setUsersList((prev) => [created, ...prev]);
+        toast.success("User baru berhasil ditambahkan!");
+      } else {
+        // Edit User
+        const updates: Partial<UserType> = {
+          nama: formData.nama.trim(),
+          email: formData.email.trim().toLowerCase(),
+          role: formData.role,
+        };
+        if (formData.password.trim()) {
+          updates.password = formData.password.trim();
+        }
+
+        const updated = await updateUser(editingUser.id, updates);
+        setUsersList((prev) =>
+          prev.map((u) => (u.id === editingUser.id ? updated : u)),
         );
-        toast.success("User berhasil diperbarui");
+        toast.success("User berhasil diperbarui!");
       }
       setIsDialogOpen(false);
     } catch (err) {
-      toast.error("Gagal menyimpan user");
+      toast.error("Gagal menyimpan data user");
       console.error(err);
     } finally {
       setSaving(false);
@@ -240,6 +294,13 @@ export const KelolaUsers = () => {
           <h1 className="text-2xl font-bold text-gray-900">Kelola Users</h1>
           <p className="text-gray-500">Manajemen data pengguna sistem</p>
         </div>
+        <Button
+          onClick={handleAddUser}
+          className="bg-pink-600 hover:bg-pink-700 text-white flex items-center gap-2 self-start sm:self-auto"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>Tambah User</span>
+        </Button>
       </div>
 
       {/* Search */}
@@ -248,7 +309,7 @@ export const KelolaUsers = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Cari user..."
+              placeholder="Cari user berdasarkan nama atau email..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -436,7 +497,7 @@ export const KelolaUsers = () => {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="text-center py-8 text-gray-500"
                   >
                     Tidak ada data user
@@ -455,17 +516,20 @@ export const KelolaUsers = () => {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
+      {/* Add / Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
+            <DialogTitle>
+              {editingUser ? "Edit User" : "Tambah User Baru"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="nama">Nama</Label>
+              <Label htmlFor="nama">Nama Lengkap</Label>
               <Input
                 id="nama"
+                placeholder="Masukkan nama lengkap..."
                 value={formData.nama}
                 onChange={(e) =>
                   setFormData({ ...formData, nama: e.target.value })
@@ -478,6 +542,7 @@ export const KelolaUsers = () => {
               <Input
                 id="email"
                 type="email"
+                placeholder="contoh@email.com"
                 value={formData.email}
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
@@ -486,7 +551,44 @@ export const KelolaUsers = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="password">
+                Password{" "}
+                {editingUser && (
+                  <span className="text-xs text-gray-400 font-normal">
+                    (Kosongkan jika tidak ingin mengubah)
+                  </span>
+                )}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={
+                    editingUser ? "••••••••" : "Masukkan password..."
+                  }
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  required={!editingUser}
+                  minLength={4}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role / Peran</Label>
               <select
                 id="role"
                 value={formData.role}
@@ -496,13 +598,13 @@ export const KelolaUsers = () => {
                     role: e.target.value as "admin" | "user",
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
               >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
+                <option value="user">User / Pengguna Biasa</option>
+                <option value="admin">Admin / Pengelola System</option>
               </select>
             </div>
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-2">
               <Button
                 type="button"
                 variant="outline"
@@ -512,11 +614,11 @@ export const KelolaUsers = () => {
               </Button>
               <Button
                 type="submit"
-                className="bg-pink-600 hover:bg-pink-700"
+                className="bg-pink-600 hover:bg-pink-700 text-white"
                 disabled={saving}
               >
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Simpan Perubahan
+                {editingUser ? "Simpan Perubahan" : "Tambah User"}
               </Button>
             </div>
           </form>

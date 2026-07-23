@@ -41,66 +41,75 @@ export const Navbar = ({ user, onLogout }: NavbarProps) => {
       ];
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-white/95 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex items-center justify-between h-16 gap-3">
           {/* Logo */}
-          <div className="flex items-center">
-            <Link to={user?.role === 'admin' ? '/admin' : '/user'} className="flex items-center gap-2">
+          <div className="flex items-center flex-shrink-0">
+            <Link to={user?.role === 'admin' ? '/admin' : '/user'} className="flex items-center gap-2.5 group">
               <img 
                 src="/logo.png" 
                 alt="Sistem Pakar Buah Naga" 
-                className="w-10 h-10"
+                className="w-9 h-9 object-contain group-hover:scale-105 transition-transform"
               />
-              <span className="font-bold text-xl text-gray-900 hidden sm:block">
+              <span className="font-bold text-base lg:text-lg text-gray-900 whitespace-nowrap leading-none">
                 Sistem Pakar <span className="text-pink-600">Buah Naga</span>
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Button
-                key={link.path}
-                variant={isActive(link.path) ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => navigate(link.path)}
-                className={isActive(link.path) ? 'bg-pink-600 hover:bg-pink-700' : ''}
-              >
-                <link.icon className="w-4 h-4 mr-2" />
-                {link.label}
-              </Button>
-            ))}
+          <div className="hidden lg:flex items-center gap-1 min-w-0">
+            {navLinks.map((link) => {
+              const active = isActive(link.path);
+              return (
+                <Button
+                  key={link.path}
+                  variant={active ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => navigate(link.path)}
+                  className={`whitespace-nowrap text-xs lg:text-sm font-medium px-2.5 lg:px-3 ${
+                    active 
+                      ? 'bg-pink-600 hover:bg-pink-700 text-white shadow-xs' 
+                      : 'text-gray-600 hover:text-pink-600 hover:bg-pink-50/60'
+                  }`}
+                >
+                  <link.icon className="w-3.5 h-3.5 lg:w-4 lg:h-4 mr-1.5 flex-shrink-0" />
+                  <span>{link.label}</span>
+                </Button>
+              );
+            })}
           </div>
 
-          {/* User Menu */}
-          <div className="flex items-center gap-2">
+          {/* User Menu & Mobile Trigger */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
+                <Button variant="ghost" size="sm" className="flex items-center gap-2 px-2 hover:bg-gray-50">
+                  <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center text-white shadow-xs">
+                    <User className="w-4 h-4" />
                   </div>
-                  <span className="hidden sm:block text-sm font-medium">
+                  <span className="hidden sm:block text-xs lg:text-sm font-semibold text-gray-800 max-w-[120px] truncate">
                     {user?.nama}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <div className="px-3 py-2">
-                  <p className="text-sm font-medium">{user?.nama}</p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
-                  <p className="text-xs text-pink-600 mt-1 capitalize">{user?.role}</p>
+                  <p className="text-sm font-semibold text-gray-900 truncate">{user?.nama}</p>
+                  <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                  <span className="inline-block text-[10px] font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full mt-1 uppercase tracking-wider">
+                    {user?.role}
+                  </span>
                 </div>
                 <DropdownMenuSeparator />
                 {user?.role === 'user' && (
                   <DropdownMenuItem onClick={() => navigate('/user/profil')}>
-                    <UserCircle className="w-4 h-4 mr-2" />
+                    <UserCircle className="w-4 h-4 mr-2 text-gray-500" />
                     Profil Saya
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem onClick={onLogout} className="text-red-600">
+                <DropdownMenuItem onClick={onLogout} className="text-red-600 hover:bg-red-50 focus:bg-red-50">
                   <LogOut className="w-4 h-4 mr-2" />
                   Keluar
                 </DropdownMenuItem>
@@ -111,7 +120,7 @@ export const Navbar = ({ user, onLogout }: NavbarProps) => {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="lg:hidden h-9 w-9 text-gray-600 hover:text-gray-900"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -121,24 +130,27 @@ export const Navbar = ({ user, onLogout }: NavbarProps) => {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-2">
-            {navLinks.map((link) => (
-              <Button
-                key={link.path}
-                variant={isActive(link.path) ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => {
-                  navigate(link.path);
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full justify-start mb-1 ${
-                  isActive(link.path) ? 'bg-pink-600 hover:bg-pink-700' : ''
-                }`}
-              >
-                <link.icon className="w-4 h-4 mr-2" />
-                {link.label}
-              </Button>
-            ))}
+          <div className="lg:hidden border-t border-gray-100 py-3 space-y-1 bg-white">
+            {navLinks.map((link) => {
+              const active = isActive(link.path);
+              return (
+                <Button
+                  key={link.path}
+                  variant={active ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => {
+                    navigate(link.path);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full justify-start text-xs font-medium ${
+                    active ? 'bg-pink-600 hover:bg-pink-700 text-white' : 'text-gray-700'
+                  }`}
+                >
+                  <link.icon className="w-4 h-4 mr-2" />
+                  {link.label}
+                </Button>
+              );
+            })}
           </div>
         )}
       </div>

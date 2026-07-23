@@ -34,7 +34,6 @@ import {
   Edit,
   Trash2,
   Search,
-  GitBranch,
   Loader2,
   RefreshCw,
   AlertTriangle,
