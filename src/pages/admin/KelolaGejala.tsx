@@ -173,13 +173,16 @@ export const KelolaGejala = () => {
     e.preventDefault();
     setSaving(true);
 
+    const isG00 = formData.kode.trim().toUpperCase() === "G00";
+    const finalCfPakar = isG00 ? 0 : formData.cf_pakar;
+
     try {
       if (editingGejala) {
         const updated = await updateGejala(editingGejala.id, {
           kode: formData.kode,
           nama: formData.nama,
           deskripsi: formData.deskripsi,
-          cf_pakar: formData.cf_pakar,
+          cf_pakar: finalCfPakar,
         });
         setGejalaList(
           gejalaList.map((g) => (g.id === editingGejala.id ? updated : g)),
@@ -191,7 +194,7 @@ export const KelolaGejala = () => {
           kode: formData.kode,
           nama: formData.nama,
           deskripsi: formData.deskripsi,
-          cf_pakar: formData.cf_pakar,
+          cf_pakar: finalCfPakar,
         };
         const inserted = await insertGejala(newGejala);
         setGejalaList([...gejalaList, inserted]);
@@ -221,6 +224,8 @@ export const KelolaGejala = () => {
       </div>
     );
   }
+
+  const isFormG00 = formData.kode.trim().toUpperCase() === "G00";
 
   return (
     <div className="space-y-6">
@@ -267,25 +272,34 @@ export const KelolaGejala = () => {
                     <Gauge className="w-4 h-4" />
                     CF Pakar
                   </Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="cf_pakar"
-                      type="number"
-                      min="0.1"
-                      max="1"
-                      step="0.05"
-                      value={formData.cf_pakar}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          cf_pakar: parseFloat(e.target.value),
-                        })
-                      }
-                      required
-                    />
-                    <span className="text-sm text-gray-500 whitespace-nowrap">
-                      {Math.round(formData.cf_pakar * 100)}%
-                    </span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="cf_pakar"
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={isFormG00 ? 0 : formData.cf_pakar}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            cf_pakar: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        disabled={isFormG00}
+                        className={isFormG00 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""}
+                        required={!isFormG00}
+                      />
+                      <span className="text-sm text-gray-500 whitespace-nowrap">
+                        {isFormG00 ? "N/A (0%)" : `${Math.round(formData.cf_pakar * 100)}%`}
+                      </span>
+                    </div>
+                    {isFormG00 && (
+                      <p className="text-[11px] text-pink-600 italic">
+                        * Kode G00 khusus pemisah alur Hama & Penyakit (Tanpa CF Pakar / 0.0)
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -321,8 +335,7 @@ export const KelolaGejala = () => {
                 </h4>
                 <p className="text-sm text-blue-700">
                   CF Pakar adalah tingkat kepastian pakar bahwa gejala ini
-                  terkait dengan penyakit buah naga. Nilai 0.1 - 1.0. Semakin
-                  tinggi, semakin yakin pakar.
+                  terkait dengan penyakit/hama buah naga. Nilai 0.1 - 1.0. (Khusus G00 bernilai N/A / 0.0 karena hanya pemisah alur).
                 </p>
               </div>
 
@@ -409,7 +422,7 @@ export const KelolaGejala = () => {
                 <TableHead className="hidden md:table-cell">
                   Deskripsi
                 </TableHead>
-                <TableHead className="w-24 text-center">CF Pakar</TableHead>
+                <TableHead className="w-28 text-center">CF Pakar</TableHead>
                 <TableHead className="w-32 text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -440,11 +453,17 @@ export const KelolaGejala = () => {
                       </p>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCfColor(gejala.cf_pakar)}`}
-                      >
-                        {Math.round(gejala.cf_pakar * 100)}%
-                      </span>
+                      {gejala.kode.trim().toUpperCase() === "G00" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                          N/A (Pemisah Alur)
+                        </span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCfColor(gejala.cf_pakar)}`}
+                        >
+                          {Math.round(gejala.cf_pakar * 100)}%
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
