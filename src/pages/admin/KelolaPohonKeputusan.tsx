@@ -122,81 +122,105 @@ export const KelolaPohonKeputusan = () => {
   };
 
   const getNodeLabel = (nodeId: string | null): string => {
-    if (!nodeId) return "Selesai";
+    if (!nodeId) return "Selesai / Tanpa Target";
     const targetNode = nodesList.find((n) => n.id === nodeId);
     if (!targetNode) {
-      if (nodeId === "hama_not_found") return "Hama Tidak Teridentifikasi";
+      if (nodeId === "hama_not_found") return "Hasil: Hama Tidak Teridentifikasi";
       if (nodeId === "penyakit_not_found")
-        return "Penyakit Tidak Teridentifikasi";
+        return "Hasil: Penyakit Tidak Teridentifikasi";
       return `[${nodeId}]`;
     }
 
     if (targetNode.hasil) {
       const penyakit = penyakitList.find((p) => p.id === targetNode.hasil);
       return penyakit
-        ? `Hasil: ${penyakit.nama}`
-        : targetNode.hasil === "hama_not_found"
-          ? "Hasil: Hama Tidak Teridentifikasi"
-          : targetNode.hasil === "penyakit_not_found"
-            ? "Hasil: Penyakit Tidak Teridentifikasi"
-            : `Hasil: ${targetNode.hasil.toUpperCase()}`;
+        ? `🏆 ${penyakit.kode} - ${penyakit.nama}`
+        : `🏆 ${targetNode.hasil}`;
     }
 
     if (targetNode.kode_gejala) {
-      return `Cek ${targetNode.kode_gejala}: ${targetNode.nama_gejala || ""}`;
+      return `${targetNode.kode_gejala}: ${targetNode.nama_gejala || ""}`;
     }
 
-    if (targetNode.id === "hama_group") return "Grup Hama";
-    if (targetNode.id === "penyakit_group") return "Grup Penyakit";
+    if (targetNode.id === "root") return "🚩 Awal Diagnosa (G00)";
+    if (targetNode.id === "hama_group") return "🐛 Kelompok Hama";
+    if (targetNode.id === "penyakit_group") return "🦠 Kelompok Penyakit";
 
-    if (targetNode.id.endsWith("_check")) {
-      const penyakitId = targetNode.id.replace("_check", "");
-      const penyakit = penyakitList.find((p) => p.id === penyakitId);
-      return penyakit
-        ? `Mulai Cek ${penyakit.nama}`
-        : `Mulai Cek ${penyakitId.toUpperCase()}`;
-    }
-
-    if (targetNode.id.endsWith("_confirmed")) {
-      const penyakitId = targetNode.id.replace("_confirmed", "");
-      const penyakit = penyakitList.find((p) => p.id === penyakitId);
-      return penyakit ? `Hasil Akhir: ${penyakit.nama}` : "Hasil Akhir";
-    }
-
-    return targetNode.id;
+    return targetNode.nama_gejala || targetNode.id;
   };
 
   const getNodeTypeLabel = (nodeId: string): string => {
-    if (nodeId === "root") return "Mulai Diagnosa";
-    if (nodeId === "hama_group") return "Grup Hama";
-    if (nodeId === "penyakit_group") return "Grup Penyakit";
+    if (nodeId === "root") return "🚩 Awal Diagnosa";
+    if (nodeId === "hama_group") return "🐛 Kelompok Hama";
+    if (nodeId === "penyakit_group") return "🦠 Kelompok Penyakit";
 
     if (nodeId.endsWith("_check")) {
       const penyakitId = nodeId.replace("_check", "");
       const penyakit = penyakitList.find((p) => p.id === penyakitId);
-      return penyakit
-        ? `Cek ${penyakit.nama}`
-        : `Cek ${penyakitId.toUpperCase()}`;
+      return penyakit ? `🔍 Cek: ${penyakit.nama}` : `🔍 Cek: ${penyakitId.toUpperCase()}`;
     }
 
     if (nodeId.endsWith("_confirmed")) {
       const penyakitId = nodeId.replace("_confirmed", "");
       const penyakit = penyakitList.find((p) => p.id === penyakitId);
-      return penyakit ? `Hasil Akhir: ${penyakit.nama}` : "Hasil Akhir";
+      return penyakit ? `🏆 Hasil: ${penyakit.nama}` : "🏆 Hasil";
+    }
+
+    const targetNode = nodesList.find((n) => n.id === nodeId);
+    if (targetNode?.hasil) {
+      const penyakit = penyakitList.find((p) => p.id === targetNode.hasil);
+      return penyakit ? `🏆 Hasil: ${penyakit.nama}` : `🏆 Hasil: ${targetNode.hasil}`;
     }
 
     const match = nodeId.match(/^([a-z0-9]+)_(g[0-9]+)(?:_(y|t|tr))?$/);
     if (match) {
       const kodeGejala = match[2].toUpperCase();
       const suffix = match[3];
-      if (suffix === "y") return `Langkah ${kodeGejala} (jalur YA)`;
-      if (suffix === "t") return `Langkah ${kodeGejala} (jalur TIDAK)`;
-      if (suffix === "tr")
-        return `Langkah ${kodeGejala} (jalur TIDAK alternatif)`;
-      return `Langkah ${kodeGejala}`;
+      if (suffix === "y") return `Pertanyaan ${kodeGejala} (YA)`;
+      if (suffix === "t") return `Pertanyaan ${kodeGejala} (TIDAK)`;
+      if (suffix === "tr") return `Pertanyaan ${kodeGejala} (TIDAK Alt)`;
+      return `Pertanyaan ${kodeGejala}`;
     }
 
-    return `Langkah ${nodeId}`;
+    return `Langkah (${nodeId})`;
+  };
+
+  const getNodeOptionLabel = (n: PohonNode): string => {
+    if (n.id === "root") return "🚩 [Awal Diagnosa] Pilihan Kategori (G00)";
+    if (n.id === "hama_group") return "🐛 [Kelompok Hama]";
+    if (n.id === "penyakit_group") return "🦠 [Kelompok Penyakit]";
+
+    if (n.id.endsWith("_check")) {
+      const penyakitId = n.id.replace("_check", "");
+      const penyakit = penyakitList.find((p) => p.id === penyakitId);
+      return `🔍 Mulai Cek ${penyakit ? penyakit.nama : penyakitId.toUpperCase()}`;
+    }
+
+    if (n.hasil) {
+      const penyakit = penyakitList.find((p) => p.id === n.hasil);
+      const namaHasil = penyakit
+        ? `${penyakit.kode} - ${penyakit.nama}`
+        : n.hasil === "hama_not_found"
+          ? "Hama Tidak Teridentifikasi"
+          : n.hasil === "penyakit_not_found"
+            ? "Penyakit Tidak Teridentifikasi"
+            : n.hasil.toUpperCase();
+      return `🏆 HASIL AKHIR: ${namaHasil}`;
+    }
+
+    // Tentukan suffix jalur (YA / TIDAK / TIDAK Alt) secara jelas dalam Bahasa Indonesia
+    let tagJalur = "";
+    if (n.id.endsWith("_y")) tagJalur = " (Cabang YA)";
+    else if (n.id.endsWith("_tr")) tagJalur = " (Cabang TIDAK Alt 2)";
+    else if (n.id.endsWith("_t")) tagJalur = " (Cabang TIDAK)";
+
+    if (n.kode_gejala) {
+      const textGejala = n.nama_gejala || "";
+      const truncated = textGejala.length > 50 ? textGejala.slice(0, 50) + "..." : textGejala;
+      return `${n.kode_gejala}${tagJalur}: ${truncated}`;
+    }
+
+    return `${n.nama_gejala || n.id}${tagJalur}`;
   };
 
   const handleAdd = () => {
@@ -358,21 +382,36 @@ export const KelolaPohonKeputusan = () => {
 
     try {
       if (editingNode) {
-        const updated = await updatePohonNode(editingNode.id, payload);
-        setNodesList(
-          nodesList.map((n) => (n.id === editingNode.id ? updated : n)),
-        );
-        toast.success("Node berhasil diperbarui");
+        if (editingNode.id !== payload.id) {
+          if (nodesList.some((n) => n.id === payload.id)) {
+            toast.error("ID Langkah baru sudah digunakan oleh langkah lain");
+            setSaving(false);
+            return;
+          }
+          // Otomatis perbarui referensi YA / TIDAK pada node lain yang mengarah ke ID lama
+          const referencingNodes = nodesList.filter(
+            (n) => n.ya === editingNode.id || n.tidak === editingNode.id
+          );
+          for (const refNode of referencingNodes) {
+            const refUpdates: any = {};
+            if (refNode.ya === editingNode.id) refUpdates.ya = payload.id;
+            if (refNode.tidak === editingNode.id) refUpdates.tidak = payload.id;
+            await updatePohonNode(refNode.id, refUpdates);
+          }
+        }
+        await updatePohonNode(editingNode.id, payload);
+        await loadData();
+        toast.success("Langkah & referensi alur berhasil diperbarui");
       } else {
         // Cek jika ID sudah ada
         if (nodesList.some((n) => n.id === payload.id)) {
-          toast.error("ID Node sudah digunakan");
+          toast.error("ID Langkah sudah digunakan");
           setSaving(false);
           return;
         }
         const inserted = await insertPohonNode(payload);
         setNodesList([...nodesList, inserted]);
-        toast.success("Node berhasil ditambahkan");
+        toast.success("Langkah berhasil ditambahkan");
       }
       setIsDialogOpen(false);
     } catch (err) {
@@ -408,10 +447,10 @@ export const KelolaPohonKeputusan = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Kelola Pohon Keputusan
+            Kelola Pohon Keputusan (Decision Tree)
           </h1>
           <p className="text-gray-500">
-            Atur percabangan Ya/Tidak secara dinamis sesuai struktur pohon pakar
+            Atur alur percabangan Ya/Tidak secara dinamis sesuai struktur pohon pakar
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -426,7 +465,7 @@ export const KelolaPohonKeputusan = () => {
             className="bg-pink-600 hover:bg-pink-700 text-white"
           >
             <Eye className="w-4 h-4 mr-2" />
-            Preview Pohon
+            Preview Visual Pohon
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -435,33 +474,35 @@ export const KelolaPohonKeputusan = () => {
                 className="bg-pink-600 hover:bg-pink-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Tambah Node
+                Tambah Langkah (Node)
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingNode
-                    ? `Edit Node [${editingNode.id}]`
-                    : "Tambah Node Baru"}
+                    ? `Edit Langkah [${editingNode.id}]`
+                    : "Tambah Langkah Baru (Node)"}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* ID Node */}
                 <div className="space-y-1">
                   <Label htmlFor="node_id">
-                    ID Node (Unik, misal: h01_g02)
+                    ID Langkah / Node (Unik)
                   </Label>
                   <Input
                     id="node_id"
-                    placeholder="Masukkan ID Node unik"
+                    placeholder="Contoh: h01_g01 atau p02_g14"
                     value={formData.id}
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, id: e.target.value }))
                     }
-                    disabled={!!editingNode}
                     required
                   />
+                  <p className="text-[11px] text-gray-500">
+                    ID unik tanpa spasi untuk mengidentifikasi langkah ini (misal: <code>h01_g01</code> untuk Hama 1 Gejala 1).
+                  </p>
                 </div>
 
                 {/* Pilih Gejala (jika ada) */}
@@ -476,7 +517,7 @@ export const KelolaPohonKeputusan = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                   >
                     <option value="">
-                      -- Bukan Node Gejala (Misal: Root / Group Node) --
+                      -- Bukan Pengecekan Gejala (Node Root / Group Pembuka) --
                     </option>
                     {gejalaList.map((g) => (
                       <option key={g.id} value={g.id}>
@@ -489,7 +530,7 @@ export const KelolaPohonKeputusan = () => {
                 {/* Nama/Teks Pertanyaan */}
                 <div className="space-y-1">
                   <Label htmlFor="nama_gejala">
-                    Teks Pertanyaan / Keterangan Node
+                    Teks Pertanyaan / Keterangan Langkah
                   </Label>
                   <Input
                     id="nama_gejala"
@@ -508,11 +549,11 @@ export const KelolaPohonKeputusan = () => {
                 {/* Deskripsi */}
                 <div className="space-y-1">
                   <Label htmlFor="deskripsi">
-                    Deskripsi Singkat (Opsional)
+                    Deskripsi / Petunjuk Tambahan (Opsional)
                   </Label>
                   <Input
                     id="deskripsi"
-                    placeholder="Keterangan tambahan"
+                    placeholder="Keterangan bantuan bagi user"
                     value={formData.deskripsi}
                     onChange={(e) =>
                       setFormData((prev) => ({
@@ -527,7 +568,7 @@ export const KelolaPohonKeputusan = () => {
                   {/* YA Target */}
                   <div className="space-y-1">
                     <Label htmlFor="ya_target">
-                      Jika Jawaban YA (Lanjut ke Langkah)
+                      Jika Jawab YA ➔ Lanjut Ke Langkah:
                     </Label>
                     <select
                       id="ya_target"
@@ -537,26 +578,32 @@ export const KelolaPohonKeputusan = () => {
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                     >
-                      <option value="">-- Selesai / Pindah ke Hasil --</option>
-                      {nodesList.map((n) => {
-                        const label = getNodeLabel(n.id);
-                        const typeLabel = getNodeTypeLabel(n.id);
-                        return (
-                          <option key={n.id} value={n.id}>
-                            [{n.id} - {typeLabel}]{" "}
-                            {label.length > 50
-                              ? label.slice(0, 50) + "..."
-                              : label}
-                          </option>
-                        );
-                      })}
+                      <option value="">-- Selesai / Pindah ke Hasil Akhir --</option>
+                      <optgroup label="❓ Langkah Pertanyaan Gejala">
+                        {nodesList
+                          .filter((n) => !n.hasil)
+                          .map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {getNodeOptionLabel(n)}
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="🏆 Hasil Akhir Diagnosa (Terminal)">
+                        {nodesList
+                          .filter((n) => !!n.hasil)
+                          .map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {getNodeOptionLabel(n)}
+                            </option>
+                          ))}
+                      </optgroup>
                     </select>
                   </div>
 
                   {/* TIDAK Target */}
                   <div className="space-y-1">
                     <Label htmlFor="tidak_target">
-                      Jika Jawaban TIDAK (Lanjut ke Langkah)
+                      Jika Jawab TIDAK ➔ Lanjut Ke Langkah:
                     </Label>
                     <select
                       id="tidak_target"
@@ -569,19 +616,25 @@ export const KelolaPohonKeputusan = () => {
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                     >
-                      <option value="">-- Selesai / Pindah ke Hasil --</option>
-                      {nodesList.map((n) => {
-                        const label = getNodeLabel(n.id);
-                        const typeLabel = getNodeTypeLabel(n.id);
-                        return (
-                          <option key={n.id} value={n.id}>
-                            [{n.id} - {typeLabel}]{" "}
-                            {label.length > 50
-                              ? label.slice(0, 50) + "..."
-                              : label}
-                          </option>
-                        );
-                      })}
+                      <option value="">-- Selesai / Pindah ke Hasil Akhir --</option>
+                      <optgroup label="❓ Langkah Pertanyaan Gejala">
+                        {nodesList
+                          .filter((n) => !n.hasil)
+                          .map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {getNodeOptionLabel(n)}
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="🏆 Hasil Akhir Diagnosa (Terminal)">
+                        {nodesList
+                          .filter((n) => !!n.hasil)
+                          .map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {getNodeOptionLabel(n)}
+                            </option>
+                          ))}
+                      </optgroup>
                     </select>
                   </div>
                 </div>
@@ -590,7 +643,7 @@ export const KelolaPohonKeputusan = () => {
                   {/* Hasil Terminal */}
                   <div className="space-y-1">
                     <Label htmlFor="hasil">
-                      Penyakit/Hama Teridentifikasi (Jika Ujung)
+                      🏆 Hasil Diagnosa (Ujung Alur)
                     </Label>
                     <select
                       id="hasil"
@@ -599,12 +652,12 @@ export const KelolaPohonKeputusan = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm"
                     >
                       <option value="">
-                        -- Bukan Ujung Alur (Bukan Terminal Leaf) --
+                        -- Pertanyaan Biasa (Lanjut ke Langkah Lain) --
                       </option>
                       <optgroup label="Hama & Penyakit">
                         {penyakitList.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.kode} - {p.nama}
+                            {p.kode} - {p.nama} ({p.tipe.toUpperCase()})
                           </option>
                         ))}
                       </optgroup>
@@ -617,6 +670,9 @@ export const KelolaPohonKeputusan = () => {
                         </option>
                       </optgroup>
                     </select>
+                    <p className="text-[11px] text-gray-500">
+                      Pilih Hama/Penyakit HANYA jika langkah ini merupakan keputusan akhir (ujung pohon).
+                    </p>
                   </div>
 
                   {/* CF Pakar */}
@@ -651,8 +707,7 @@ export const KelolaPohonKeputusan = () => {
                     />
                     {formData.gejala_id && (
                       <p className="text-[11px] text-pink-600 italic mt-0.5">
-                        * CF Pakar dikunci & disinkronkan otomatis dari data
-                        master gejala.
+                        * CF Pakar dikunci & disinkronkan otomatis dari data master gejala.
                       </p>
                     )}
                   </div>
@@ -661,10 +716,10 @@ export const KelolaPohonKeputusan = () => {
                 {/* Preview Alur */}
                 <div className="bg-pink-50 rounded-xl p-3 border border-pink-100 text-xs text-pink-800 space-y-1">
                   <p>
-                    <strong>Alur Singkat:</strong>
+                    <strong>Alur Singkat Langkah Ini:</strong>
                   </p>
                   <p>
-                    Node:{" "}
+                    Langkah:{" "}
                     <span className="font-semibold">
                       {formData.id || "(Belum diisi)"}
                     </span>{" "}
@@ -719,7 +774,7 @@ export const KelolaPohonKeputusan = () => {
                     {saving && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     )}
-                    Simpan Node
+                    Simpan Langkah
                   </Button>
                 </div>
               </form>
@@ -727,6 +782,60 @@ export const KelolaPohonKeputusan = () => {
           </Dialog>
         </div>
       </div>
+
+      {/* Panduan Utama Pengelolaan Pohon */}
+      <Card className="border-pink-200 bg-gradient-to-r from-pink-50 via-white to-rose-50 shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 bg-pink-100 text-pink-600 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg">
+              📖
+            </div>
+            <div className="space-y-3 text-sm text-gray-800 w-full">
+              <div>
+                <h3 className="text-base font-bold text-pink-950 flex items-center gap-2">
+                  Panduan Pengelolaan Alur Pohon Keputusan (Decision Tree)
+                </h3>
+                <p className="text-xs text-gray-600">
+                  Pohon keputusan mengatur alur pertanyaan interaktif kepada pengguna dari gejala awal hingga hasil diagnosa akhir.
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-4 pt-1">
+                <div className="bg-white p-3.5 rounded-lg border border-pink-100 shadow-2xs space-y-1">
+                  <div className="flex items-center gap-2 font-semibold text-xs text-pink-700">
+                    <span className="w-5 h-5 bg-pink-100 rounded-full flex items-center justify-center text-[10px]">1</span>
+                    Awal Diagnosa (Root)
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Diagnosa selalu dimulai dari langkah <strong>root (G00)</strong> untuk memisahkan alur menuju kelompok <strong>Hama</strong> atau <strong>Penyakit</strong>.
+                  </p>
+                </div>
+
+                <div className="bg-white p-3.5 rounded-lg border border-blue-100 shadow-2xs space-y-1">
+                  <div className="flex items-center gap-2 font-semibold text-xs text-blue-700">
+                    <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-[10px]">2</span>
+                    Pertanyaan & Percabangan
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    - <strong>Jika Jawab YA</strong> ➔ Alur berpindah ke ID Langkah di kolom Target YA.<br/>
+                    - <strong>Jika Jawab TIDAK</strong> ➔ Alur berpindah ke ID Langkah di kolom Target TIDAK.
+                  </p>
+                </div>
+
+                <div className="bg-white p-3.5 rounded-lg border border-green-100 shadow-2xs space-y-1">
+                  <div className="flex items-center gap-2 font-semibold text-xs text-green-700">
+                    <span className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center text-[10px]">3</span>
+                    Keputusan Akhir (Ujung)
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Jika alur sudah mencapai akhir diagnosa, kosongkan target YA/TIDAK lalu tentukan <strong>Hasil Diagnosa (Hama / Penyakit)</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Search */}
       <Card>
@@ -1060,29 +1169,7 @@ export const KelolaPohonKeputusan = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Info Help */}
-      <div className="bg-pink-50 rounded-xl p-4 border border-pink-100 flex gap-3">
-        <GitBranch className="w-5 h-5 text-pink-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-pink-900">
-          <h4 className="font-semibold mb-1">Panduan Pengelolaan Pohon:</h4>
-          <ul className="list-disc pl-4 space-y-1 text-xs leading-relaxed text-pink-800">
-            <li>
-              <strong>Root Node</strong> adalah node awal dengan ID `root` yang
-              menanyakan gejala pembeda umum `G00`.
-            </li>
-            <li>
-              Untuk membuat <strong>Node Pertanyaan</strong>, pilih Gejala dan
-              arahkan target YA / TIDAK ke Node ID selanjutnya.
-            </li>
-            <li>
-              Untuk membuat <strong>Node Kesimpulan (Ujung Alur)</strong>,
-              kosongkan target YA / TIDAK, lalu pilih Hama/Penyakit
-              Teridentifikasi di dropdown kesimpulan.
-            </li>
-          </ul>
-        </div>
-      </div>
-      
+
       <PohonKeputusanPreview
         isOpen={isPreviewOpen}
         onOpenChange={setIsPreviewOpen}
