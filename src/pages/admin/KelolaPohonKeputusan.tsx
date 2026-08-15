@@ -686,10 +686,12 @@ export const KelolaPohonKeputusan = () => {
                       min="0"
                       max="1"
                       value={
-                        formData.gejala_id
-                          ? (gejalaList.find((g) => g.id === formData.gejala_id)
-                              ?.cf_pakar ?? formData.cf_pakar)
-                          : formData.cf_pakar
+                        formData.hasil
+                          ? "-"
+                          : formData.gejala_id
+                            ? (gejalaList.find((g) => g.id === formData.gejala_id)
+                                ?.cf_pakar ?? formData.cf_pakar)
+                            : formData.cf_pakar
                       }
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -697,18 +699,22 @@ export const KelolaPohonKeputusan = () => {
                           cf_pakar: parseFloat(e.target.value) || 0,
                         }))
                       }
-                      disabled={!!formData.gejala_id}
+                      disabled={!!formData.gejala_id || !!formData.hasil}
                       className={
-                        formData.gejala_id
+                        formData.gejala_id || formData.hasil
                           ? "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
                           : ""
                       }
                     />
-                    {formData.gejala_id && (
+                    {formData.hasil ? (
+                      <p className="text-[11px] text-gray-500 italic mt-0.5">
+                        * Node hasil akhir tidak menggunakan CF Pakar (CF dihitung dinamis dari gejala).
+                      </p>
+                    ) : formData.gejala_id ? (
                       <p className="text-[11px] text-pink-600 italic mt-0.5">
                         * CF Pakar dikunci & disinkronkan otomatis dari data master gejala.
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -1046,6 +1052,13 @@ export const KelolaPohonKeputusan = () => {
                     </TableCell>
                     <TableCell className="text-center font-mono text-sm">
                       {(() => {
+                        if (node.hasil) {
+                          return (
+                            <span className="text-gray-400 font-sans text-xs italic">
+                              -
+                            </span>
+                          );
+                        }
                         const matched = node.gejala_id
                           ? gejalaList.find((g) => g.id === node.gejala_id)
                           : null;
