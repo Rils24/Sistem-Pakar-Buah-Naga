@@ -137,12 +137,6 @@ export const LoginForm = ({ onSubmit, onNavigateToRegister }: LoginFormProps) =>
                 </button>
               </div>
 
-              <div className="pt-4 border-t border-gray-200">
-                <p className="text-xs text-center text-gray-400">
-                  Akun Demo Admin:<br />
-                  Email: admin@sistempakar.com | Password: admin123
-                </p>
-              </div>
             </form>
           </CardContent>
         </Card>
