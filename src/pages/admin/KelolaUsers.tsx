@@ -39,6 +39,7 @@ import {
   UserPlus,
   Eye,
   EyeOff,
+  KeyRound,
 } from "lucide-react";
 import {
   fetchUsers,
@@ -66,6 +67,10 @@ export const KelolaUsers = () => {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<UserType | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [newResetPassword, setNewResetPassword] = useState("password123");
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     nama: "",
@@ -204,6 +209,30 @@ export const KelolaUsers = () => {
     } finally {
       setDeleting(false);
       setDeleteBulkConfirm(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordTarget || !newResetPassword.trim()) return;
+    setResettingPassword(true);
+    try {
+      const updated = await updateUser(resetPasswordTarget.id, {
+        password: newResetPassword.trim(),
+      });
+      setUsersList((prev) =>
+        prev.map((u) => (u.id === resetPasswordTarget.id ? updated : u)),
+      );
+      toast.success(
+        `Password user "${resetPasswordTarget.nama}" berhasil direset!`,
+      );
+      setResetPasswordTarget(null);
+      setNewResetPassword("password123");
+      setShowResetPassword(false);
+    } catch (err) {
+      toast.error("Gagal mereset password user");
+      console.error(err);
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -412,6 +441,79 @@ export const KelolaUsers = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Reset Password Dialog */}
+      <AlertDialog
+        open={!!resetPasswordTarget}
+        onOpenChange={() => {
+          setResetPasswordTarget(null);
+          setNewResetPassword("password123");
+          setShowResetPassword(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <KeyRound className="w-6 h-6 text-amber-600" />
+            </div>
+            <AlertDialogTitle className="text-center">
+              Reset Password
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Reset password untuk user{" "}
+              <strong>{resetPasswordTarget?.nama}</strong> ({resetPasswordTarget?.email})
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-6 py-2 space-y-2">
+            <Label htmlFor="reset-password">Password Baru</Label>
+            <div className="relative">
+              <Input
+                id="reset-password"
+                type={showResetPassword ? "text" : "password"}
+                value={newResetPassword}
+                onChange={(e) => setNewResetPassword(e.target.value)}
+                placeholder="Masukkan password baru..."
+                minLength={4}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowResetPassword(!showResetPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                {showResetPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">
+              Default: password123 — Informasikan password baru ini ke user yang bersangkutan.
+            </p>
+          </div>
+          <AlertDialogFooter className="sm:justify-center gap-3">
+            <AlertDialogCancel disabled={resettingPassword}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetPassword}
+              disabled={resettingPassword || !newResetPassword.trim()}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {resettingPassword ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mereset...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="w-4 h-4 mr-2" /> Reset Password
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Table */}
       <Card>
         <CardContent className="p-0">
@@ -434,7 +536,7 @@ export const KelolaUsers = () => {
                 <TableHead className="hidden md:table-cell">
                   Tanggal Daftar
                 </TableHead>
-                <TableHead className="w-32 text-right">Aksi</TableHead>
+                <TableHead className="w-40 text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -473,7 +575,20 @@ export const KelolaUsers = () => {
                       ).toLocaleDateString("id-ID")}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setResetPasswordTarget(user);
+                            setNewResetPassword("password123");
+                            setShowResetPassword(false);
+                          }}
+                          className="text-amber-600 hover:text-amber-700"
+                          title="Reset Password"
+                        >
+                          <KeyRound className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
