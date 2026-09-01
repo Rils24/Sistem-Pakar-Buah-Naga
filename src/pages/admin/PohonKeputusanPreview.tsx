@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Edit, Download, Plus, Trash2 } from "lucide-react";
+import { Loader2, Edit, Download, Plus, Trash2, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { insertPohonNode, updatePohonNode, deletePohonNode } from "@/services/supabaseService";
 import type { Gejala, Penyakit } from "@/types";
@@ -1277,19 +1277,21 @@ export const PohonKeputusanPreview = ({
                 Cari Node / Gejala
               </p>
               <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Ketik kode, nama gejala..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-3 pr-8 py-1.5 text-xs border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+                  className="w-full pl-8 pr-8 py-1.5 text-xs border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-base font-bold"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-md transition-colors"
+                    title="Clear Search"
                   >
-                    &times;
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>

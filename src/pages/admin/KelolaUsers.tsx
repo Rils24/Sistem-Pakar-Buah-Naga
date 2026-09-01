@@ -40,6 +40,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  X,
 } from "lucide-react";
 import {
   fetchUsers,
@@ -350,8 +351,20 @@ export const KelolaUsers = () => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="pl-10"
+              className="pl-10 pr-16"
             />
+            {searchTerm && (
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setCurrentPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                <span>Clear</span>
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>

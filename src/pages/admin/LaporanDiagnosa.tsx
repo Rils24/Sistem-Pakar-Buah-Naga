@@ -48,14 +48,11 @@ import {
   TrendingUp,
   Bug,
   Filter,
-  Download,
   ImageIcon,
   ChevronLeft,
   ChevronRight,
   X,
   Printer,
-  FileSpreadsheet,
-  FileCode,
   ChevronDown,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -227,14 +224,7 @@ export const LaporanDiagnosa = () => {
     return "Tidak Yakin";
   };
 
-  // Helper Escape CSV (RFC 4180)
-  const escapeCSV = (val: any): string => {
-    if (val === null || val === undefined) return '""';
-    const str = String(val).replace(/"/g, '""');
-    return `"${str}"`;
-  };
-
-  // Helper filter target data for export/print
+  // Helper filter target data for print
   const getExportData = (target: "all" | "filtered" | "selected") => {
     if (target === "selected") {
       return laporanList.filter((item) => selectedIds.includes(item.id));
@@ -243,110 +233,6 @@ export const LaporanDiagnosa = () => {
       return filteredList;
     }
     return laporanList;
-  };
-
-  // Export CSV dengan UTF-8 BOM dan escaping lengkap
-  const handleExportCSV = (target: "all" | "filtered" | "selected" = "filtered") => {
-    const dataToExport = getExportData(target);
-    if (dataToExport.length === 0) {
-      toast.error("Tidak ada data untuk diekspor");
-      return;
-    }
-
-    const headers = [
-      "No",
-      "ID Laporan",
-      "Tanggal Diagnosa",
-      "Waktu",
-      "Nama User",
-      "Hasil Diagnosa",
-      "Certainty Factor (CF %)",
-      "Kategori Keyakinan",
-      "Jumlah Gejala",
-      "Daftar Gejala",
-      "Solusi / Penanganan",
-    ];
-
-    const rows = dataToExport.map((item, idx) => {
-      const gejalaNames = (item.gejala_dipilih || [])
-        .map((g: any) => g.nama_gejala)
-        .join("; ");
-      const solusiList = (item.solusi || []).join("; ");
-      const dateObj = new Date(item.tanggal);
-      const tanggalStr = dateObj.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      });
-      const waktuStr = dateObj.toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      const cfPercent = Math.round((item.cf_tertinggi || 0) * 100);
-      const cfLabel = getCFLabel(item.cf_tertinggi || 0);
-      const penyakitName =
-        item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-";
-      const userName = userMap[item.user_id] || "Unknown User";
-
-      return [
-        idx + 1,
-        escapeCSV(item.id),
-        escapeCSV(tanggalStr),
-        escapeCSV(waktuStr),
-        escapeCSV(userName),
-        escapeCSV(penyakitName),
-        `${cfPercent}%`,
-        escapeCSV(cfLabel),
-        item.gejala_dipilih?.length || 0,
-        escapeCSV(gejalaNames),
-        escapeCSV(solusiList),
-      ].join(",");
-    });
-
-    // Masukkan UTF-8 BOM \uFEFF agar Microsoft Excel membaca format karakter & separator dengan sempurna
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const label = target === "selected" ? "terpilih" : target === "filtered" ? "terfilter" : "semua";
-    a.download = `laporan_diagnosa_${label}_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Berhasil mengekspor ${dataToExport.length} data laporan ke CSV`);
-  };
-
-  // Export JSON
-  const handleExportJSON = (target: "all" | "filtered" | "selected" = "filtered") => {
-    const dataToExport = getExportData(target);
-    if (dataToExport.length === 0) {
-      toast.error("Tidak ada data untuk diekspor");
-      return;
-    }
-    const formattedData = dataToExport.map((item) => ({
-      id: item.id,
-      tanggal: item.tanggal,
-      user_id: item.user_id,
-      nama_user: userMap[item.user_id] || "Unknown",
-      hasil_diagnosa: item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-",
-      cf_tertinggi: item.cf_tertinggi,
-      cf_persentase: `${Math.round((item.cf_tertinggi || 0) * 100)}%`,
-      kategori_cf: getCFLabel(item.cf_tertinggi || 0),
-      gejala_dipilih: item.gejala_dipilih || [],
-      hasil_cf: item.hasil_cf || [],
-      solusi: item.solusi || [],
-    }));
-
-    const jsonStr = JSON.stringify(formattedData, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const label = target === "selected" ? "terpilih" : target === "filtered" ? "terfilter" : "semua";
-    a.download = `laporan_diagnosa_${label}_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Berhasil mengekspor ${dataToExport.length} data laporan ke JSON`);
   };
 
   // Print / Cetak PDF
@@ -397,8 +283,8 @@ export const LaporanDiagnosa = () => {
                 size="sm"
                 className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 shadow-sm self-start sm:self-auto"
               >
-                <Download className="w-4 h-4" />
-                <span>Export / Cetak Laporan</span>
+                <Printer className="w-4 h-4" />
+                <span>Cetak Laporan PDF</span>
                 {selectedIds.length > 0 && (
                   <span className="ml-1 bg-emerald-800 text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full">
                     {selectedIds.length}
@@ -413,17 +299,9 @@ export const LaporanDiagnosa = () => {
                   <DropdownMenuLabel className="text-xs font-semibold text-emerald-700 bg-emerald-50/80 py-1.5 px-2 rounded">
                     Item Terpilih ({selectedIds.length})
                   </DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => handleExportCSV("selected")}>
-                    <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
-                    Export CSV (Terpilih)
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handlePrint("selected")}>
-                    <Printer className="w-4 h-4 mr-2 text-blue-600" />
-                    Cetak PDF / Print (Terpilih)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExportJSON("selected")}>
-                    <FileCode className="w-4 h-4 mr-2 text-amber-600" />
-                    Export JSON (Terpilih)
+                    <Printer className="w-4 h-4 mr-2 text-emerald-600" />
+                    Cetak PDF ({selectedIds.length} Terpilih)
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                 </>
@@ -432,17 +310,9 @@ export const LaporanDiagnosa = () => {
               <DropdownMenuLabel className="text-xs font-semibold text-gray-500">
                 {searchQuery || filterTanggal ? "Data Terfilter" : "Semua Data"} ({filteredList.length})
               </DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => handleExportCSV("filtered")}>
-                <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-600" />
-                Export CSV ({searchQuery || filterTanggal ? "Terfilter" : "Semua"})
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handlePrint("filtered")}>
                 <Printer className="w-4 h-4 mr-2 text-blue-600" />
-                Cetak PDF / Print ({searchQuery || filterTanggal ? "Terfilter" : "Semua"})
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportJSON("filtered")}>
-                <FileCode className="w-4 h-4 mr-2 text-amber-600" />
-                Export JSON ({searchQuery || filterTanggal ? "Terfilter" : "Semua"})
+                Cetak PDF ({searchQuery || filterTanggal ? "Terfilter" : "Semua Data"})
               </DropdownMenuItem>
 
               {(searchQuery || filterTanggal) && (
@@ -451,13 +321,9 @@ export const LaporanDiagnosa = () => {
                   <DropdownMenuLabel className="text-xs font-semibold text-gray-500">
                     Semua Data Total ({laporanList.length})
                   </DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => handleExportCSV("all")}>
-                    <FileSpreadsheet className="w-4 h-4 mr-2 text-gray-600" />
-                    Export CSV (Semua {laporanList.length})
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handlePrint("all")}>
                     <Printer className="w-4 h-4 mr-2 text-gray-600" />
-                    Cetak PDF / Print (Semua {laporanList.length})
+                    Cetak PDF (Semua {laporanList.length} Data)
                   </DropdownMenuItem>
                 </>
               )}
@@ -624,8 +490,20 @@ export const LaporanDiagnosa = () => {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="pl-10"
+            className="pl-10 pr-16"
           />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setCurrentPage(1);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1"
+            >
+              <X className="w-3 h-3" />
+              <span>Clear</span>
+            </button>
+          )}
         </div>
         <div className="relative">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -636,8 +514,20 @@ export const LaporanDiagnosa = () => {
               setFilterTanggal(e.target.value);
               setCurrentPage(1);
             }}
-            className="pl-10 w-full sm:w-48"
+            className="pl-10 pr-8 w-full sm:w-48"
           />
+          {filterTanggal && (
+            <button
+              onClick={() => {
+                setFilterTanggal("");
+                setCurrentPage(1);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs p-1 rounded-md transition-colors"
+              title="Reset Tanggal"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1242,139 +1132,237 @@ export const LaporanDiagnosa = () => {
     {/* ============================================================ */}
     {/* PRINTABLE TEMPLATE (PDF / PRINT VIEW) */}
     {/* ============================================================ */}
-    <div className="hidden print:block print:w-full print:p-6 print:text-black font-sans bg-white">
+    <div className="hidden print:block print:w-full print:p-2 print:text-black font-sans bg-white">
       {printTarget === "single" && singlePrintItem ? (
         /* SINGLE DIAGNOSIS ITEM PRINT SHEET */
-        <div className="space-y-6">
-          <div className="border-b-2 border-gray-800 pb-4 text-center">
-            <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">
-              SISTEM PAKAR DIAGNOSA HAMA & PENYAKIT TANAMAN BUAH NAGA
-            </h1>
-            <h2 className="text-base font-semibold text-gray-700 mt-1">
-              SURAT HASIL DIAGNOSA KELOLA ADMIN
+        <div className="space-y-5 text-slate-900">
+          {/* Formal Kop Surat */}
+          <div className="flex items-center justify-between border-b-4 border-double border-slate-900 pb-3">
+            <div className="flex items-center gap-4">
+              <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain flex-shrink-0" />
+              <div>
+                <h1 className="text-lg font-extrabold uppercase tracking-wide text-slate-900 leading-tight">
+                  SISTEM PAKAR DIAGNOSIS HAMA & PENYAKIT BUAH NAGA
+                </h1>
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mt-0.5">
+                  METODE CERTAINTY FACTOR & DECISION TREE
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Dokumen Resmi Hasil Diagnosis Kesehatan Tanaman Buah Naga
+                </p>
+              </div>
+            </div>
+            <div className="text-right border-l-2 border-slate-300 pl-4">
+              <span className="inline-block bg-slate-100 text-slate-800 font-mono text-[10px] font-bold px-2 py-0.5 rounded border border-slate-300">
+                OFFICIAL REPORT
+              </span>
+              <p className="text-[10px] text-slate-500 font-mono mt-1">ID: #{singlePrintItem.id.slice(0, 8)}</p>
+            </div>
+          </div>
+
+          {/* Subheader Title */}
+          <div className="text-center bg-slate-50 py-2 rounded border border-slate-200">
+            <h2 className="text-sm font-extrabold uppercase tracking-widest text-slate-800">
+              LEMBAR HASIL DIAGNOSIS PETANI
             </h2>
-            <p className="text-xs text-gray-500 mt-1">
-              ID Laporan: {singlePrintItem.id} | Tanggal: {new Date(singlePrintItem.tanggal).toLocaleString('id-ID')}
-            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 p-4 rounded-lg border border-gray-300">
-            <div>
-              <p className="text-gray-500 font-medium uppercase">NAMA USER / PETANI</p>
-              <p className="font-semibold text-gray-900 text-sm">{userMap[singlePrintItem.user_id] || singlePrintItem.user_id}</p>
+          {/* Metadata Grid */}
+          <div className="grid grid-cols-2 gap-3 text-xs bg-white p-3.5 rounded-lg border border-slate-300">
+            <div className="space-y-1.5">
+              <div className="flex">
+                <span className="w-32 text-slate-500 font-medium">Nama Petani / User</span>
+                <span className="font-bold text-slate-900">: {userMap[singlePrintItem.user_id] || singlePrintItem.user_id}</span>
+              </div>
+              <div className="flex">
+                <span className="w-32 text-slate-500 font-medium">ID Laporan</span>
+                <span className="font-mono text-slate-700">: {singlePrintItem.id}</span>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-500 font-medium uppercase">TANGGAL DIAGNOSA</p>
-              <p className="font-semibold text-gray-900 text-sm">
-                {new Date(singlePrintItem.tanggal).toLocaleDateString('id-ID', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric'
-                })}
-              </p>
-            </div>
-          </div>
-
-          {/* Result Box */}
-          <div className="p-4 border-2 border-pink-500 bg-pink-50/50 rounded-xl">
-            <p className="text-xs font-bold text-pink-700 uppercase">Hasil Diagnosa Utama</p>
-            <div className="flex justify-between items-center mt-1">
-              <h3 className="text-xl font-bold text-gray-900">
-                {singlePrintItem.nama_penyakit_terpilih || singlePrintItem.hasil_cf?.[0]?.nama_penyakit}
-              </h3>
-              <div className="text-right">
-                <span className="text-3xl font-extrabold text-pink-600">
-                  {Math.round((singlePrintItem.cf_tertinggi || 0) * 100)}%
+            <div className="space-y-1.5">
+              <div className="flex">
+                <span className="w-32 text-slate-500 font-medium">Tanggal Diagnosa</span>
+                <span className="font-bold text-slate-900">
+                  : {new Date(singlePrintItem.tanggal).toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
                 </span>
-                <p className="text-xs font-semibold text-gray-600">{getCFLabel(singlePrintItem.cf_tertinggi || 0)}</p>
+              </div>
+              <div className="flex">
+                <span className="w-32 text-slate-500 font-medium">Waktu Diagnosa</span>
+                <span className="font-mono text-slate-700">
+                  : {new Date(singlePrintItem.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Gejala */}
-          <div>
-            <h4 className="font-bold text-gray-900 text-xs border-b border-gray-400 pb-1 mb-2">
-              GEJALA YANG TERIDENTIFIKASI ({singlePrintItem.gejala_dipilih?.length || 0})
+          {/* Diagnosis Result Highlight Card */}
+          <div className="p-4 border-2 border-pink-600 bg-pink-50/60 rounded-xl flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-pink-700 uppercase tracking-wider">Hasil Diagnosis Utama</p>
+              <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">
+                {singlePrintItem.nama_penyakit_terpilih || singlePrintItem.hasil_cf?.[0]?.nama_penyakit || "Tidak Teridentifikasi"}
+              </h3>
+            </div>
+            <div className="text-right bg-white px-4 py-2 rounded-lg border border-pink-200 shadow-xs">
+              <p className="text-xs text-slate-500 font-medium">Tingkat Kepastian (CF)</p>
+              <p className="text-2xl font-black text-pink-600 leading-none mt-0.5">
+                {Math.round((singlePrintItem.cf_tertinggi || 0) * 100)}%
+              </p>
+              <span className="inline-block mt-1 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                {getCFLabel(singlePrintItem.cf_tertinggi || 0)}
+              </span>
+            </div>
+          </div>
+
+          {/* Gejala Teridentifikasi Table */}
+          <div className="space-y-2">
+            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider border-b-2 border-slate-800 pb-1">
+              Gejala Teridentifikasi ({singlePrintItem.gejala_dipilih?.length || 0})
             </h4>
-            <table className="w-full text-xs border border-gray-300">
+            <table className="w-full text-xs border-collapse border border-slate-300">
               <thead>
-                <tr className="bg-gray-100 border-b border-gray-300 text-left">
-                  <th className="p-2 w-10 border-r border-gray-300 text-center">No</th>
-                  <th className="p-2 border-r border-gray-300">Nama Gejala</th>
-                  <th className="p-2 w-24">CF Pakar</th>
+                <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                  <th className="p-2 w-10 border-r border-slate-300 text-center">No</th>
+                  <th className="p-2 text-left border-r border-slate-300">Nama Gejala yang Dipilih</th>
+                  <th className="p-2 w-28 text-center border-r border-slate-300">CF Pakar</th>
+                  <th className="p-2 w-28 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {(singlePrintItem.gejala_dipilih || []).map((g: any, idx: number) => (
-                  <tr key={idx} className="border-b border-gray-200">
-                    <td className="p-2 border-r border-gray-200 text-center font-mono">{idx + 1}</td>
-                    <td className="p-2 border-r border-gray-200">{g.nama_gejala}</td>
-                    <td className="p-2 font-mono">{g.cf_pakar}</td>
+                  <tr key={idx} className="border-b border-slate-200 odd:bg-slate-50/50">
+                    <td className="p-2 border-r border-slate-300 text-center font-mono">{idx + 1}</td>
+                    <td className="p-2 border-r border-slate-300 font-medium text-slate-800">{g.nama_gejala}</td>
+                    <td className="p-2 border-r border-slate-300 text-center font-mono font-semibold text-slate-700">{g.cf_pakar}</td>
+                    <td className="p-2 text-center text-[10px] font-bold text-emerald-700">TERDETEKSI</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Solusi */}
-          {singlePrintItem.solusi && singlePrintItem.solusi.length > 0 && (
-            <div>
-              <h4 className="font-bold text-gray-900 text-xs border-b border-gray-400 pb-1 mb-2">
-                REKOMENDASI PENANGANAN / SOLUSI
+          {/* Alternatif CF Diagnosa (jika ada) */}
+          {singlePrintItem.hasil_cf && singlePrintItem.hasil_cf.length > 1 && (
+            <div className="space-y-2">
+              <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider border-b-2 border-slate-800 pb-1">
+                Kemungkinan Diagnosis Lainnya
               </h4>
-              <ol className="list-decimal list-inside text-xs space-y-1 pl-1">
-                {singlePrintItem.solusi.map((s: string, idx: number) => (
-                  <li key={idx} className="text-gray-800 leading-relaxed">
-                    {s}
-                  </li>
-                ))}
-              </ol>
+              <table className="w-full text-xs border-collapse border border-slate-300">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                    <th className="p-1.5 w-10 border-r border-slate-300 text-center">Peringkat</th>
+                    <th className="p-1.5 text-left border-r border-slate-300">Jenis Hama / Penyakit</th>
+                    <th className="p-1.5 w-28 text-center">Nilai CF (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...singlePrintItem.hasil_cf]
+                    .sort((a: any, b: any) => b.cf_value - a.cf_value)
+                    .map((r: any, idx: number) => (
+                      <tr key={idx} className={`border-b border-slate-200 ${idx === 0 ? "bg-pink-50 font-bold" : "odd:bg-slate-50"}`}>
+                        <td className="p-1.5 border-r border-slate-300 text-center font-mono">#{idx + 1}</td>
+                        <td className="p-1.5 border-r border-slate-300">{r.nama_penyakit}</td>
+                        <td className="p-1.5 text-center font-mono">{r.persentase || Math.round((r.cf_value || 0) * 100)}%</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* Sign-off */}
-          <div className="pt-10 flex justify-between text-xs text-gray-600">
-            <div>
-              <p>Dicetak secara otomatis oleh System</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Sistem Pakar Buah Naga © {new Date().getFullYear()}</p>
+          {/* Rekomendasi Solusi */}
+          {singlePrintItem.solusi && singlePrintItem.solusi.length > 0 && (
+            <div className="space-y-2 break-inside-avoid">
+              <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider border-b-2 border-slate-800 pb-1">
+                Rekomendasi Penanganan & Solusi Pakar
+              </h4>
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-300 space-y-2">
+                {singlePrintItem.solusi.map((s: string, idx: number) => (
+                  <div key={idx} className="flex items-start gap-2 text-xs text-slate-800 leading-relaxed">
+                    <span className="w-5 h-5 bg-slate-800 text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <p className="flex-1">{s}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="text-center w-48 border-t border-gray-400 pt-2 mt-12">
-              <p className="font-semibold text-gray-800">Admin / Pakar Sistem</p>
+          )}
+
+          {/* Sign-off / Signature */}
+          <div className="pt-6 flex justify-between items-end text-xs text-slate-700 break-inside-avoid">
+            <div className="space-y-1">
+              <p className="font-bold text-slate-900">Catatan Sistem:</p>
+              <p className="text-[10px] text-slate-500 leading-tight max-w-xs">
+                Dokumen ini diterbitkan secara otomatis oleh Sistem Pakar Buah Naga berbasis Certainty Factor & Decision Tree.
+              </p>
+              <p className="text-[10px] text-slate-400 font-mono mt-1">
+                Dicetak pada: {new Date().toLocaleString('id-ID')}
+              </p>
+            </div>
+            <div className="text-center w-56">
+              <p className="text-slate-600">Sumatra Barat, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <p className="font-bold text-slate-900 mt-1">Administrator / Pakar Sistem</p>
+              <div className="h-16 flex items-center justify-center">
+                <span className="text-[10px] text-slate-300 italic">[ Tanda Tangan & Stempel ]</span>
+              </div>
+              <div className="border-t border-slate-900 pt-1 font-semibold text-slate-900">
+                ( Pengelola Sistem Pakar )
+              </div>
             </div>
           </div>
         </div>
       ) : (
-        /* MULTIPLE/TABLE REPORTS PRINT SHEET */
-        <div className="space-y-6">
-          <div className="border-b-2 border-gray-900 pb-3 text-center">
-            <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">
-              SISTEM PAKAR DIAGNOSA HAMA & PENYAKIT TANAMAN BUAH NAGA
-            </h1>
-            <h2 className="text-base font-semibold text-gray-700 mt-0.5">
-              REKAPITULASI LAPORAN HASIL DIAGNOSA USER
-            </h2>
-            <div className="flex justify-between items-center text-xs text-gray-500 mt-2 px-2">
-              <span>Dicetak pada: {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-              <span>Jumlah Record: {getExportData((printTarget as any) || "filtered").length} Laporan</span>
+        /* MULTIPLE / TABLE RECAP PRINT SHEET */
+        <div className="space-y-4 text-slate-900">
+          {/* Formal Kop Surat */}
+          <div className="flex items-center justify-between border-b-4 border-double border-slate-900 pb-3">
+            <div className="flex items-center gap-4">
+              <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain flex-shrink-0" />
+              <div>
+                <h1 className="text-lg font-extrabold uppercase tracking-wide text-slate-900 leading-tight">
+                  SISTEM PAKAR DIAGNOSIS HAMA & PENYAKIT BUAH NAGA
+                </h1>
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mt-0.5">
+                  LAPORAN REKAPITULASI HASIL DIAGNOSIS USER
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Rekap Laporan Diagnosa Kesehatan Tanaman Buah Naga
+                </p>
+              </div>
+            </div>
+            <div className="text-right border-l-2 border-slate-300 pl-4">
+              <span className="inline-block bg-slate-800 text-white font-mono text-[10px] font-bold px-2.5 py-1 rounded">
+                REKAPITULASI
+              </span>
+              <p className="text-[10px] text-slate-500 font-mono mt-1">
+                Total: {getExportData((printTarget as any) || "filtered").length} Laporan
+              </p>
             </div>
           </div>
 
-          {/* Summary Box */}
-          <div className="grid grid-cols-4 gap-3 text-center bg-gray-50 p-3 rounded-lg border border-gray-300 text-xs">
+          {/* Info Header Summary */}
+          <div className="grid grid-cols-4 gap-3 text-center bg-slate-50 p-3 rounded-lg border border-slate-300 text-xs">
             <div>
-              <p className="text-gray-500 font-medium">Total Diagnosa</p>
-              <p className="text-lg font-bold text-gray-900">{getExportData((printTarget as any) || "filtered").length}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 font-medium">User Unik</p>
-              <p className="text-lg font-bold text-gray-900">
-                {new Set(getExportData((printTarget as any) || "filtered").map((i) => i.user_id)).size}
+              <p className="text-slate-500 font-medium text-[11px]">Total Diagnosa</p>
+              <p className="text-base font-extrabold text-slate-900">
+                {getExportData((printTarget as any) || "filtered").length} <span className="text-[10px] text-slate-500 font-normal">record</span>
               </p>
             </div>
             <div>
-              <p className="text-gray-500 font-medium">Rata-rata CF</p>
-              <p className="text-lg font-bold text-gray-900">
+              <p className="text-slate-500 font-medium text-[11px]">Petani / User Unik</p>
+              <p className="text-base font-extrabold text-slate-900">
+                {new Set(getExportData((printTarget as any) || "filtered").map((i) => i.user_id)).size} <span className="text-[10px] text-slate-500 font-normal">user</span>
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500 font-medium text-[11px]">Rata-rata Keyakinan (CF)</p>
+              <p className="text-base font-extrabold text-pink-600">
                 {Math.round(
                   (getExportData((printTarget as any) || "filtered").reduce((s, i) => s + (i.cf_tertinggi || 0), 0) /
                     (getExportData((printTarget as any) || "filtered").length || 1)) * 100
@@ -1382,60 +1370,83 @@ export const LaporanDiagnosa = () => {
               </p>
             </div>
             <div>
-              <p className="text-gray-500 font-medium">Status Filter</p>
-              <p className="text-xs font-semibold text-gray-800 mt-1">
-                {filterTanggal ? `Tanggal: ${filterTanggal}` : searchQuery ? `Search: "${searchQuery}"` : "Semua Data"}
+              <p className="text-slate-500 font-medium text-[11px]">Status Kategori Data</p>
+              <p className="text-[11px] font-bold text-slate-800 mt-0.5 truncate">
+                {printTarget === "selected"
+                  ? `Terpilih (${selectedIds.length})`
+                  : filterTanggal
+                  ? `Filter: ${filterTanggal}`
+                  : searchQuery
+                  ? `Cari: "${searchQuery}"`
+                  : "Semua Data"}
               </p>
             </div>
           </div>
 
-          {/* Table */}
-          <table className="w-full text-xs border-collapse border border-gray-400">
+          {/* Table Data */}
+          <table className="w-full text-xs border-collapse border border-slate-400">
             <thead>
-              <tr className="bg-gray-200 text-gray-900 font-bold border-b border-gray-400">
-                <th className="border border-gray-400 p-2 text-center w-8">No</th>
-                <th className="border border-gray-400 p-2 text-left w-24">Tanggal</th>
-                <th className="border border-gray-400 p-2 text-left w-32">Nama User</th>
-                <th className="border border-gray-400 p-2 text-left">Hasil Diagnosa</th>
-                <th className="border border-gray-400 p-2 text-center w-16">CF (%)</th>
-                <th className="border border-gray-400 p-2 text-left">Gejala Terdeteksi</th>
+              <tr className="bg-slate-800 text-white font-bold uppercase tracking-wider text-[11px]">
+                <th className="border border-slate-400 p-2 text-center w-8">No</th>
+                <th className="border border-slate-400 p-2 text-left w-24">Tanggal</th>
+                <th className="border border-slate-400 p-2 text-left w-36">Nama User / Petani</th>
+                <th className="border border-slate-400 p-2 text-left">Hasil Diagnosis</th>
+                <th className="border border-slate-400 p-2 text-center w-24">CF (%) & Kategori</th>
+                <th className="border border-slate-400 p-2 text-left">Gejala Terdeteksi</th>
               </tr>
             </thead>
             <tbody>
-              {getExportData((printTarget as any) || "filtered").map((item, idx) => (
-                <tr key={item.id || idx} className="border-b border-gray-300">
-                  <td className="border border-gray-300 p-2 text-center font-mono">{idx + 1}</td>
-                  <td className="border border-gray-300 p-2">
-                    {new Date(item.tanggal).toLocaleDateString('id-ID', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric'
-                    })}
-                  </td>
-                  <td className="border border-gray-300 p-2 font-medium">
-                    {userMap[item.user_id] || "Unknown"}
-                  </td>
-                  <td className="border border-gray-300 p-2 font-semibold">
-                    {item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-"}
-                  </td>
-                  <td className="border border-gray-300 p-2 text-center font-bold">
-                    {Math.round((item.cf_tertinggi || 0) * 100)}%
-                  </td>
-                  <td className="border border-gray-300 p-2 text-[11px] leading-tight">
-                    {(item.gejala_dipilih || []).map((g: any) => g.nama_gejala).join(", ")}
-                  </td>
-                </tr>
-              ))}
+              {getExportData((printTarget as any) || "filtered").map((item, idx) => {
+                const cfVal = item.cf_tertinggi || 0;
+                const penyakit = item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || "-";
+                const gejalaStr = (item.gejala_dipilih || []).map((g: any) => g.nama_gejala).join(", ");
+
+                return (
+                  <tr key={item.id || idx} className="border-b border-slate-300 odd:bg-slate-50/60 hover:bg-slate-100">
+                    <td className="border border-slate-300 p-2 text-center font-mono">{idx + 1}</td>
+                    <td className="border border-slate-300 p-2 whitespace-nowrap">
+                      <p className="font-semibold">{new Date(item.tanggal).toLocaleDateString('id-ID')}</p>
+                      <p className="text-[10px] text-slate-500">{new Date(item.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</p>
+                    </td>
+                    <td className="border border-slate-300 p-2 font-medium text-slate-900">
+                      {userMap[item.user_id] || "Unknown"}
+                    </td>
+                    <td className="border border-slate-300 p-2 font-bold text-slate-900">
+                      {penyakit}
+                    </td>
+                    <td className="border border-slate-300 p-2 text-center">
+                      <span className="font-bold text-pink-600">{Math.round(cfVal * 100)}%</span>
+                      <p className="text-[10px] text-slate-600 font-medium">{getCFLabel(cfVal)}</p>
+                    </td>
+                    <td className="border border-slate-300 p-2 text-[11px] text-slate-700 leading-tight">
+                      {gejalaStr || "-"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
-          {/* Signature */}
-          <div className="pt-8 flex justify-between text-xs text-gray-600">
+          {/* Sign-off / Signature */}
+          <div className="pt-6 flex justify-between items-end text-xs text-slate-700 break-inside-avoid">
             <div>
-              <p>Catatan: Dokumen ini dicetak untuk keperluan arsip/laporan administrasi.</p>
+              <p className="font-bold text-slate-900">Keterangan:</p>
+              <p className="text-[10px] text-slate-500 max-w-sm mt-0.5">
+                Laporan ini menyajikan hasil rekapitulasi diagnosa dari sistem pakar diagnosa penyakit & hama tanaman buah naga.
+              </p>
+              <p className="text-[10px] text-slate-400 font-mono mt-1">
+                Dicetak pada: {new Date().toLocaleString('id-ID')}
+              </p>
             </div>
-            <div className="text-center w-52 border-t border-gray-400 pt-2 mt-10">
-              <p className="font-semibold text-gray-900">Admin Pengelola Laporan</p>
+            <div className="text-center w-56">
+              <p className="text-slate-600">Sumatra Barat, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <p className="font-bold text-slate-900 mt-1">Administrator / Pengelola</p>
+              <div className="h-16 flex items-center justify-center">
+                <span className="text-[10px] text-slate-300 italic">[ Tanda Tangan & Stempel ]</span>
+              </div>
+              <div className="border-t border-slate-900 pt-1 font-semibold text-slate-900">
+                ( Pengelola Sistem Pakar )
+              </div>
             </div>
           </div>
         </div>
