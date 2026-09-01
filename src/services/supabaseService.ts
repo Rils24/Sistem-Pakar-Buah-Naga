@@ -1,10 +1,42 @@
 // ============================================================
 // SUPABASE SERVICE LAYER
 // Semua operasi CRUD ke database Supabase
+//
+// READ  = langsung query tabel (SELECT terbuka)
+// WRITE = admin tables lewat RPC function (verifikasi role di server)
+//         user/hasil_diagnosa tetap langsung (policy terbuka)
 // ============================================================
 
 import { supabase } from '@/lib/supabase';
+import { getSession } from '@/lib/auth';
 import type { Penyakit, Gejala, Rule, User } from '@/types';
+
+// Helper: ambil current user ID dari session (untuk RPC admin)
+const getCurrentUserId = (): string => {
+  const session = getSession();
+  return session?.userId || '';
+};
+
+// Helper: coba RPC dulu (aman), kalau belum di-migrate fallback ke direct access
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminWrite = async <T = any>(
+  rpcName: string,
+  rpcParams: Record<string, unknown>,
+  fallback: () => Promise<T>
+): Promise<T> => {
+  try {
+    const { data, error } = await supabase.rpc(rpcName, rpcParams);
+    if (error) throw error;
+    return data as T;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Code 42883 = function not found (migration belum dijalankan)
+    if (msg.includes('does not exist') || msg.includes('42883')) {
+      return fallback();
+    }
+    throw err;
+  }
+};
 
 // ============================================================
 // PENYAKIT
@@ -30,32 +62,38 @@ export const fetchPenyakitById = async (id: string): Promise<Penyakit | null> =>
 };
 
 export const insertPenyakit = async (penyakit: Penyakit): Promise<Penyakit> => {
-  const { data, error } = await supabase
-    .from('penyakit')
-    .insert(penyakit)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return adminWrite(
+    'admin_insert_penyakit',
+    { p_admin_id: getCurrentUserId(), p_data: penyakit },
+    async () => {
+      const { data, error } = await supabase.from('penyakit').insert(penyakit).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
 };
 
 export const updatePenyakit = async (id: string, updates: Partial<Penyakit>): Promise<Penyakit> => {
-  const { data, error } = await supabase
-    .from('penyakit')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return adminWrite(
+    'admin_update_penyakit',
+    { p_admin_id: getCurrentUserId(), p_id: id, p_data: updates },
+    async () => {
+      const { data, error } = await supabase.from('penyakit').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
 };
 
 export const deletePenyakit = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('penyakit')
-    .delete()
-    .eq('id', id);
-  if (error) throw error;
+  return adminWrite(
+    'admin_delete_penyakit',
+    { p_admin_id: getCurrentUserId(), p_id: id },
+    async () => {
+      const { error } = await supabase.from('penyakit').delete().eq('id', id);
+      if (error) throw error;
+    }
+  );
 };
 
 // Upload gambar penyakit ke Supabase Storage (single file)
@@ -71,7 +109,10 @@ export const uploadPenyakitImage = async (file: File): Promise<string> => {
       upsert: false,
     });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    console.error('Gagal upload gambar:', uploadError);
+    throw uploadError;
+  }
 
   const { data } = supabase.storage
     .from('penyakit-images')
@@ -80,22 +121,18 @@ export const uploadPenyakitImage = async (file: File): Promise<string> => {
   return data.publicUrl;
 };
 
-// Upload multiple gambar penyakit
+// Upload multiple gambar penyakit ke Supabase Storage
 export const uploadMultiplePenyakitImages = async (files: File[]): Promise<string[]> => {
-  const urls: string[] = [];
-  for (const file of files) {
-    const url = await uploadPenyakitImage(file);
-    urls.push(url);
-  }
-  return urls;
+  const uploadPromises = files.map((file) => uploadPenyakitImage(file));
+  return Promise.all(uploadPromises);
 };
 
-// Hapus satu gambar penyakit dari Supabase Storage
+// Hapus gambar penyakit dari Supabase Storage
 export const deletePenyakitImage = async (imageUrl: string): Promise<void> => {
-  const parts = imageUrl.split('/penyakit-images/');
-  if (parts.length < 2) return;
-  const filePath = parts[1];
-
+  const urlParts = imageUrl.split('/penyakit-images/');
+  if (urlParts.length < 2) return;
+  
+  const filePath = urlParts[1];
   const { error } = await supabase.storage
     .from('penyakit-images')
     .remove([filePath]);
@@ -136,32 +173,38 @@ export const fetchGejalaById = async (id: string): Promise<Gejala | null> => {
 };
 
 export const insertGejala = async (gejala: Gejala): Promise<Gejala> => {
-  const { data, error } = await supabase
-    .from('gejala')
-    .insert(gejala)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return adminWrite(
+    'admin_insert_gejala',
+    { p_admin_id: getCurrentUserId(), p_data: gejala },
+    async () => {
+      const { data, error } = await supabase.from('gejala').insert(gejala).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
 };
 
 export const updateGejala = async (id: string, updates: Partial<Gejala>): Promise<Gejala> => {
-  const { data, error } = await supabase
-    .from('gejala')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return adminWrite(
+    'admin_update_gejala',
+    { p_admin_id: getCurrentUserId(), p_id: id, p_data: updates },
+    async () => {
+      const { data, error } = await supabase.from('gejala').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
 };
 
 export const deleteGejala = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('gejala')
-    .delete()
-    .eq('id', id);
-  if (error) throw error;
+  return adminWrite(
+    'admin_delete_gejala',
+    { p_admin_id: getCurrentUserId(), p_id: id },
+    async () => {
+      const { error } = await supabase.from('gejala').delete().eq('id', id);
+      if (error) throw error;
+    }
+  );
 };
 
 // ============================================================
@@ -178,32 +221,38 @@ export const fetchRules = async (): Promise<Rule[]> => {
 };
 
 export const insertRule = async (rule: Rule): Promise<Rule> => {
-  const { data, error } = await supabase
-    .from('rules')
-    .insert(rule)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return adminWrite(
+    'admin_insert_rule',
+    { p_admin_id: getCurrentUserId(), p_data: rule },
+    async () => {
+      const { data, error } = await supabase.from('rules').insert(rule).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
 };
 
 export const updateRule = async (id: string, updates: Partial<Rule>): Promise<Rule> => {
-  const { data, error } = await supabase
-    .from('rules')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return adminWrite(
+    'admin_update_rule',
+    { p_admin_id: getCurrentUserId(), p_id: id, p_data: updates },
+    async () => {
+      const { data, error } = await supabase.from('rules').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
 };
 
 export const deleteRule = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('rules')
-    .delete()
-    .eq('id', id);
-  if (error) throw error;
+  return adminWrite(
+    'admin_delete_rule',
+    { p_admin_id: getCurrentUserId(), p_id: id },
+    async () => {
+      const { error } = await supabase.from('rules').delete().eq('id', id);
+      if (error) throw error;
+    }
+  );
 };
 
 // ============================================================
@@ -261,11 +310,14 @@ export const updateUser = async (id: string, updates: Partial<User>): Promise<Us
 };
 
 export const deleteUserById = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('users')
-    .delete()
-    .eq('id', id);
-  if (error) throw error;
+  return adminWrite(
+    'admin_delete_user',
+    { p_admin_id: getCurrentUserId(), p_user_id: id },
+    async () => {
+      const { error } = await supabase.from('users').delete().eq('id', id);
+      if (error) throw error;
+    }
+  );
 };
 
 // ============================================================
@@ -333,30 +385,58 @@ export const fetchPohonNodeById = async (id: string): Promise<any | null> => {
 };
 
 export const insertPohonNode = async (node: any): Promise<any> => {
-  const { data, error } = await supabase
-    .from('pohon_keputusan')
-    .insert(node)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return adminWrite(
+    'admin_insert_pohon',
+    { p_admin_id: getCurrentUserId(), p_data: node },
+    async () => {
+      const { data, error } = await supabase.from('pohon_keputusan').insert(node).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
 };
 
 export const updatePohonNode = async (id: string, updates: Partial<any>): Promise<any> => {
-  const { data, error } = await supabase
-    .from('pohon_keputusan')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const result = await adminWrite(
+    'admin_update_pohon',
+    { p_admin_id: getCurrentUserId(), p_id: id, p_data: updates },
+    async () => {
+      const { data, error } = await supabase.from('pohon_keputusan').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    }
+  );
+
+  // Jika update mencoba mengosongkan 'ya' atau 'tidak' ke null/empty,
+  // namun RPC lama di Supabase masih menyimpan nilai lama (akibat bug COALESCE SQL),
+  // lakukan fallback direct update:
+  if (
+    ((updates.ya === null || updates.ya === "") && result?.ya) ||
+    ((updates.tidak === null || updates.tidak === "") && result?.tidak)
+  ) {
+    try {
+      const { data } = await supabase
+        .from('pohon_keputusan')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (data) return data;
+    } catch (e) {
+      console.warn("Fallback direct update failed:", e);
+    }
+  }
+
+  return result;
 };
 
 export const deletePohonNode = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('pohon_keputusan')
-    .delete()
-    .eq('id', id);
-  if (error) throw error;
+  return adminWrite(
+    'admin_delete_pohon',
+    { p_admin_id: getCurrentUserId(), p_id: id },
+    async () => {
+      const { error } = await supabase.from('pohon_keputusan').delete().eq('id', id);
+      if (error) throw error;
+    }
+  );
 };

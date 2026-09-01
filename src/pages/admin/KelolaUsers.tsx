@@ -48,6 +48,7 @@ import {
   updateUser,
   deleteUserById,
 } from "@/services/supabaseService";
+import { hashPassword } from "@/lib/auth";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { toast } from "sonner";
 import type { User as UserType } from "@/types";
@@ -216,8 +217,10 @@ export const KelolaUsers = () => {
     if (!resetPasswordTarget || !newResetPassword.trim()) return;
     setResettingPassword(true);
     try {
+      // Hash password baru sebelum disimpan ke database
+      const hashedPassword = await hashPassword(newResetPassword.trim());
       const updated = await updateUser(resetPasswordTarget.id, {
-        password: newResetPassword.trim(),
+        password: hashedPassword,
       });
       setUsersList((prev) =>
         prev.map((u) => (u.id === resetPasswordTarget.id ? updated : u)),
@@ -251,11 +254,13 @@ export const KelolaUsers = () => {
           return;
         }
 
+        // Hash password sebelum menyimpan user baru
+        const hashedPassword = await hashPassword(formData.password);
         const newUser: UserType = {
           id: `u${Date.now()}`,
           nama: formData.nama.trim(),
           email: cleanEmail,
-          password: formData.password,
+          password: hashedPassword,
           role: formData.role,
           created_at: new Date().toISOString(),
         };
@@ -271,7 +276,8 @@ export const KelolaUsers = () => {
           role: formData.role,
         };
         if (formData.password.trim()) {
-          updates.password = formData.password.trim();
+          // Hash password baru jika diisi
+          updates.password = await hashPassword(formData.password.trim());
         }
 
         const updated = await updateUser(editingUser.id, updates);

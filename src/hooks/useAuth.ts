@@ -1,6 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User } from '@/types';
 import { fetchUserByEmail, fetchUserById, insertUser, updateUser } from '@/services/supabaseService';
+import { setSupabaseUserId, clearSupabaseUserId } from '@/lib/supabase';
+import {
+  hashPassword,
+  verifyPassword,
+  isBcryptHash,
+  createSession,
+  getSession,
+  clearSession,
+  refreshSession,
+  updateSessionData,
+} from '@/lib/auth';
 
 interface AuthState {
   user: User | null;
@@ -15,34 +26,63 @@ export const useAuth = () => {
     isLoading: true
   });
 
-  // Cek session saat mount — cek dari localStorage lalu validasi di Supabase
+  // Cek session saat mount — validasi session + cek user di database
   useEffect(() => {
     const checkSession = async () => {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
+      // Cek session baru terlebih dahulu
+      const session = getSession();
+
+      if (session) {
         try {
-          const parsed = JSON.parse(storedUser);
+          // Set user ID untuk RLS sebelum validasi
+          setSupabaseUserId(session.userId);
           // Validasi user masih ada di database
-          const dbUser = await fetchUserById(parsed.id);
+          const dbUser = await fetchUserById(session.userId);
           if (dbUser) {
+            // Refresh session expiry setiap kali user aktif
+            refreshSession();
             setAuthState({
               user: dbUser,
               isAuthenticated: true,
               isLoading: false
             });
-            // Update localStorage dengan data terbaru
-            localStorage.setItem('currentUser', JSON.stringify(dbUser));
           } else {
-            // User tidak ada lagi di DB
-            localStorage.removeItem('currentUser');
+            // User sudah tidak ada di DB — hapus session
+            clearSupabaseUserId();
+            clearSession();
             setAuthState({ user: null, isAuthenticated: false, isLoading: false });
           }
         } catch {
-          // Fallback: gunakan data localStorage jika DB error
-          const user = JSON.parse(storedUser);
-          setAuthState({ user, isAuthenticated: true, isLoading: false });
+          // DB error — tetap gunakan data session sebagai fallback
+          const fallbackUser: User = {
+            id: session.userId,
+            nama: session.nama,
+            email: session.email,
+            password: '', // Tidak disimpan di session
+            role: session.role,
+          };
+          setAuthState({ user: fallbackUser, isAuthenticated: true, isLoading: false });
         }
       } else {
+        // Migrasi: cek apakah ada session format lama (currentUser)
+        const legacyUser = localStorage.getItem('currentUser');
+        if (legacyUser) {
+          try {
+            const parsed = JSON.parse(legacyUser);
+            const dbUser = await fetchUserById(parsed.id);
+            if (dbUser) {
+              // Migrasi ke session format baru
+              setSupabaseUserId(dbUser.id);
+              createSession(dbUser);
+              localStorage.removeItem('currentUser');
+              setAuthState({ user: dbUser, isAuthenticated: true, isLoading: false });
+              return;
+            }
+          } catch {
+            // Gagal migrasi, abaikan
+          }
+          localStorage.removeItem('currentUser');
+        }
         setAuthState(prev => ({ ...prev, isLoading: false }));
       }
     };
@@ -56,12 +96,35 @@ export const useAuth = () => {
       if (!user) {
         return { success: false, message: 'Email tidak terdaftar' };
       }
-      
-      if (user.password !== password) {
+
+      // Cek password — support migrasi dari plain-text ke bcrypt
+      let passwordValid = false;
+
+      if (isBcryptHash(user.password)) {
+        // Password sudah di-hash — verifikasi dengan bcrypt
+        passwordValid = await verifyPassword(password, user.password);
+      } else {
+        // Password masih plain-text (data lama) — cocokkan langsung
+        passwordValid = user.password === password;
+
+        if (passwordValid) {
+          // Auto-migrasi: hash password lama dan update di database
+          try {
+            const hashed = await hashPassword(password);
+            await updateUser(user.id, { password: hashed });
+          } catch (err) {
+            console.warn('Gagal migrasi hash password (akan dicoba lagi nanti):', err);
+          }
+        }
+      }
+
+      if (!passwordValid) {
         return { success: false, message: 'Password salah' };
       }
-      
-      localStorage.setItem('currentUser', JSON.stringify(user));
+
+      // Set user ID untuk RLS + buat session aman (tanpa password)
+      setSupabaseUserId(user.id);
+      createSession(user);
       setAuthState({
         user,
         isAuthenticated: true,
@@ -82,12 +145,15 @@ export const useAuth = () => {
       if (existingUser) {
         return { success: false, message: 'Email sudah terdaftar' };
       }
+
+      // Hash password sebelum disimpan ke database
+      const hashedPassword = await hashPassword(password);
       
       const newUser: User = {
         id: `u${Date.now()}`,
         nama,
         email,
-        password,
+        password: hashedPassword,
         role: 'user',
         created_at: new Date().toISOString()
       };
@@ -102,7 +168,8 @@ export const useAuth = () => {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('currentUser');
+    clearSupabaseUserId();
+    clearSession();
     setAuthState({
       user: null,
       isAuthenticated: false,
@@ -124,9 +191,21 @@ export const useAuth = () => {
         }
       }
 
-      const updatedUser = await updateUser(authState.user.id, updatedData);
+      // Jika ada perubahan password, hash terlebih dahulu
+      const dataToUpdate = { ...updatedData };
+      if (dataToUpdate.password) {
+        dataToUpdate.password = await hashPassword(dataToUpdate.password);
+      }
 
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      const updatedUser = await updateUser(authState.user.id, dataToUpdate);
+
+      // Update session data (tanpa password)
+      updateSessionData({
+        nama: updatedUser.nama,
+        email: updatedUser.email,
+        role: updatedUser.role,
+      });
+
       setAuthState(prev => ({
         ...prev,
         user: updatedUser
@@ -139,11 +218,32 @@ export const useAuth = () => {
     }
   }, [authState.user]);
 
+  // Fungsi tambahan: verifikasi password saat ini (untuk halaman profil)
+  const verifyCurrentPassword = useCallback(async (plainPassword: string): Promise<boolean> => {
+    if (!authState.user) return false;
+    
+    try {
+      // Ambil user terbaru dari database untuk mendapat password hash
+      const dbUser = await fetchUserById(authState.user.id);
+      if (!dbUser) return false;
+
+      if (isBcryptHash(dbUser.password)) {
+        return verifyPassword(plainPassword, dbUser.password);
+      } else {
+        // Fallback: plain-text lama
+        return dbUser.password === plainPassword;
+      }
+    } catch {
+      return false;
+    }
+  }, [authState.user]);
+
   return {
     ...authState,
     login,
     register,
     logout,
-    updateProfile
+    updateProfile,
+    verifyCurrentPassword,
   };
 };

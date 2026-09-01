@@ -1,7 +1,21 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Edit, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Edit, Download, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { insertPohonNode, updatePohonNode, deletePohonNode } from "@/services/supabaseService";
 import type { Gejala, Penyakit } from "@/types";
 import type { PohonNode } from "./KelolaPohonKeputusan";
 
@@ -31,6 +45,8 @@ interface PohonKeputusanPreviewProps {
   gejalaList: Gejala[];
   penyakitList: Penyakit[];
   onEditNode: (node: PohonNode) => void;
+  onAddBranchNode?: (parentId: string, branchType: 'ya' | 'tidak') => void;
+  onRefreshData?: () => Promise<void>;
   loading: boolean;
 }
 
@@ -214,71 +230,233 @@ const getCoords = (
 };
 
 const generateFallbackPositions = (nodes: PohonNode[]) => {
-  const positions = { ...STATIC_NODE_POSITIONS };
+  const positions: Record<string, { x: number; y: number }> = { ...STATIC_NODE_POSITIONS };
+  if (!nodes || nodes.length === 0) return positions;
+
+  // 1. Group nodes dynamically
   const groups: Record<string, PohonNode[]> = {};
   
-  nodes.forEach(n => {
-    if (n.id === 'root' || n.id === 'hama_group' || n.id === 'penyakit_group') return;
-    const match = n.id.match(/^([hp]\d{2})/);
-    if (match) {
-      const grp = match[1];
-      if (!groups[grp]) groups[grp] = [];
-      groups[grp].push(n);
+  // Helper to resolve group key for a node
+  const resolveGroupKey = (node: PohonNode, visited = new Set<string>()): string => {
+    if (visited.has(node.id)) return "other";
+    visited.add(node.id);
+
+    // Direct match h01..h07 or p01..p06
+    const match = node.id.match(/^([hp]\d{2})/i);
+    if (match) return match[1].toLowerCase();
+
+    // Check kode_gejala e.g. G25 -> H05 range
+    if (node.kode_gejala) {
+      const gNum = parseInt(node.kode_gejala.replace(/\D/g, ""), 10);
+      if (gNum >= 1 && gNum <= 6) return "h01";
+      if (gNum >= 7 && gNum <= 12) return "h02";
+      if (gNum >= 13 && gNum <= 16) return "h03";
+      if (gNum >= 17 && gNum <= 21) return "h04";
+      if (gNum >= 22 && gNum <= 27) return "h05";
+      if (gNum >= 28 && gNum <= 32) return "h06";
+      if (gNum >= 33 && gNum <= 38) return "h07";
+      if (gNum >= 39 && gNum <= 45) return "p01";
+      if (gNum >= 46 && gNum <= 50) return "p02";
+      if (gNum >= 51 && gNum <= 62) return "p03";
+      if (gNum >= 63 && gNum <= 67) return "p04";
+      if (gNum >= 68 && gNum <= 72) return "p05";
+      if (gNum >= 73 && gNum <= 78) return "p06";
+    }
+
+    // Trace parent node
+    const parentNode = nodes.find((p) => p.ya === node.id || p.tidak === node.id);
+    if (parentNode) {
+      return resolveGroupKey(parentNode, visited);
+    }
+
+    // Trace child node
+    if (node.ya) {
+      const childNode = nodes.find((c) => c.id === node.ya);
+      if (childNode) return resolveGroupKey(childNode, visited);
+    }
+    if (node.tidak) {
+      const childNode = nodes.find((c) => c.id === node.tidak);
+      if (childNode) return resolveGroupKey(childNode, visited);
+    }
+
+    return "other";
+  };
+
+  nodes.forEach((n) => {
+    if (n.id === "root" || n.id === "hama_group" || n.id === "penyakit_group") return;
+    const grpKey = resolveGroupKey(n);
+    if (!groups[grpKey]) groups[grpKey] = [];
+    groups[grpKey].push(n);
+  });
+
+  // Calculate layout coordinates for each group
+  Object.keys(groups).forEach((grpKey) => {
+    const grpNodes = groups[grpKey];
+    let columnCenterX = 300;
+
+    if (grpKey.startsWith("h")) {
+      const idx = parseInt(grpKey.substring(1), 10) || 1;
+      columnCenterX = (idx - 1) * 400 + 300;
+    } else if (grpKey.startsWith("p")) {
+      const idx = parseInt(grpKey.substring(1), 10) || 1;
+      columnCenterX = (idx - 1) * 400 + 300;
+    }
+
+    // BFS starting from top node of group
+    let startNode = grpNodes.find((n) => n.id.endsWith("_check"));
+    if (!startNode) {
+      const targetIds = new Set(grpNodes.flatMap((n) => [n.ya, n.tidak].filter(Boolean)));
+      startNode = grpNodes.find((n) => !targetIds.has(n.id)) || grpNodes[0];
+    }
+
+    if (startNode) {
+      const queue: Array<{ id: string; depth: number; offset: number }> = [
+        { id: startNode.id, depth: 0, offset: 0 },
+      ];
+      const visited = new Set<string>();
+
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        if (visited.has(curr.id)) continue;
+        visited.add(curr.id);
+
+        const nodeObj = grpNodes.find((n) => n.id === curr.id) || nodes.find((n) => n.id === curr.id);
+
+        if (!positions[curr.id]) {
+          const calculatedX = columnCenterX + curr.offset * 85;
+          const calculatedY = 250 + curr.depth * 100;
+          positions[curr.id] = { x: calculatedX, y: calculatedY };
+        }
+
+        if (nodeObj) {
+          if (nodeObj.ya && grpNodes.some((n) => n.id === nodeObj.ya)) {
+            queue.push({ id: nodeObj.ya, depth: curr.depth + 1, offset: curr.offset - 0.7 });
+          }
+          if (nodeObj.tidak && grpNodes.some((n) => n.id === nodeObj.tidak)) {
+            queue.push({ id: nodeObj.tidak, depth: curr.depth + 1, offset: curr.offset + 0.7 });
+          }
+        }
+      }
+    }
+
+    // Position remaining orphan nodes relative to parent
+    grpNodes.forEach((n) => {
+      if (!positions[n.id]) {
+        const parent = grpNodes.find((p) => p.ya === n.id || p.tidak === n.id) || nodes.find((p) => p.ya === n.id || p.tidak === n.id);
+        if (parent && positions[parent.id]) {
+          const isTidak = parent.tidak === n.id;
+          positions[n.id] = {
+            x: positions[parent.id].x + (isTidak ? 85 : -85),
+            y: positions[parent.id].y + 100,
+          };
+        } else {
+          positions[n.id] = { x: columnCenterX, y: 750 };
+        }
+      }
+    });
+  });
+
+  // Catch-all for any unassigned node in nodes list
+  nodes.forEach((n) => {
+    if (!positions[n.id]) {
+      const parent = nodes.find((p) => p.ya === n.id || p.tidak === n.id);
+      if (parent && positions[parent.id]) {
+        const isTidak = parent.tidak === n.id;
+        positions[n.id] = {
+          x: positions[parent.id].x + (isTidak ? 85 : -85),
+          y: positions[parent.id].y + 100,
+        };
+      } else {
+        positions[n.id] = { x: 300, y: 450 };
+      }
     }
   });
 
-  for (const grp in groups) {
-    const grpNodes = groups[grp];
-    const startNode = grpNodes.find(n => n.id.endsWith('_check'));
-    if (!startNode) continue;
+  return positions;
+};
 
-    // BFS to assign levels and coordinates
-    const queue = [{ id: startNode.id, depth: 0, offset: 0 }];
-    const visited = new Set<string>();
-    
-    const idx = parseInt(grp.substring(1), 10);
-    const columnCenter = (idx - 1) * 400 + 300;
+const isNodeInTreeType = (
+  node: PohonNode,
+  treeType: PreviewTreeType,
+  nodesList: PohonNode[],
+  penyakitList: any[]
+): boolean => {
+  if (treeType === "gabungan") return true;
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (visited.has(current.id)) continue;
-      visited.add(current.id);
+  if (node.id === "root") return true;
 
-      const node = grpNodes.find(n => n.id === current.id);
-      if (!node) continue;
-
-      if (!positions[node.id]) {
-        const calculatedX = columnCenter + current.offset * 85;
-        const calculatedY = 250 + current.depth * 100;
-        positions[node.id] = { x: calculatedX, y: calculatedY };
-      }
-
-      if (node.ya && grpNodes.some(n => n.id === node.ya)) {
-        queue.push({ id: node.ya, depth: current.depth + 1, offset: current.offset - 0.7 });
-      }
-      if (node.tidak && grpNodes.some(n => n.id === node.tidak)) {
-        queue.push({ id: node.tidak, depth: current.depth + 1, offset: current.offset + 0.7 });
-      }
-    }
-
-    // Catch orphan nodes
-    grpNodes.forEach(n => {
-      if (!positions[n.id]) {
-        positions[n.id] = { x: columnCenter, y: 750 };
-      }
-    });
+  // Header groups & not_found nodes
+  if (treeType === "hama") {
+    if (node.id === "hama_group" || node.id === "hama_not_found") return true;
+    if (node.id === "penyakit_group" || node.id === "penyakit_not_found") return false;
+  }
+  if (treeType === "penyakit") {
+    if (node.id === "penyakit_group" || node.id === "penyakit_not_found") return true;
+    if (node.id === "hama_group" || node.id === "hama_not_found") return false;
   }
 
-  return positions;
+  // Direct ID prefix match (h01..h07 is HAMA only, p01..p06 is PENYAKIT only)
+  const idLower = node.id.toLowerCase();
+  if (idLower.startsWith("h")) return treeType === "hama";
+  if (idLower.startsWith("p")) return treeType === "penyakit";
+
+  // Terminal node disease match
+  if (node.hasil) {
+    if (node.hasil === "hama_not_found") return treeType === "hama";
+    if (node.hasil === "penyakit_not_found") return treeType === "penyakit";
+    const matchedPenyakit = penyakitList.find((p) => p.id === node.hasil);
+    if (matchedPenyakit) {
+      if (matchedPenyakit.tipe === "hama" || matchedPenyakit.id.startsWith("h")) {
+        return treeType === "hama";
+      }
+      if (matchedPenyakit.tipe === "penyakit" || matchedPenyakit.id.startsWith("p")) {
+        return treeType === "penyakit";
+      }
+    }
+  }
+
+  // Symptom code range match (G01-G38 Hama, G39-G78 Penyakit)
+  if (node.kode_gejala) {
+    const gNum = parseInt(node.kode_gejala.replace(/\D/g, ""), 10);
+    if (!isNaN(gNum)) {
+      if (gNum >= 1 && gNum <= 38) return treeType === "hama";
+      if (gNum >= 39 && gNum <= 78) return treeType === "penyakit";
+    }
+  }
+
+  // Parent ancestor tracing (only upwards to avoid crossing branches via root)
+  const targetPrefix = treeType === "hama" ? "h" : "p";
+  const forbiddenPrefix = treeType === "hama" ? "p" : "h";
+  const visited = new Set<string>();
+
+  const isAncestorConnected = (currId: string): boolean => {
+    if (visited.has(currId)) return false;
+    visited.add(currId);
+
+    const currLower = currId.toLowerCase();
+    if (currLower.startsWith(targetPrefix)) return true;
+    if (currLower.startsWith(forbiddenPrefix) || currId === "root") return false;
+
+    const parents = nodesList.filter((p) => p.ya === currId || p.tidak === currId);
+    for (const p of parents) {
+      if (isAncestorConnected(p.id)) return true;
+    }
+
+    return false;
+  };
+
+  return isAncestorConnected(node.id);
 };
 
 export const PohonKeputusanPreview = ({
   isOpen,
   onOpenChange,
   nodesList,
-  gejalaList: _gejalaList,
+  gejalaList,
   penyakitList,
   onEditNode,
+  onAddBranchNode: _onAddBranchNode,
+  onRefreshData,
   loading
 }: PohonKeputusanPreviewProps) => {
   const [previewTreeType, setPreviewTreeType] = useState<PreviewTreeType>("hama");
@@ -293,6 +471,311 @@ export const PohonKeputusanPreview = ({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const lastCenteredSearchIdRef = useRef<string | null>(null);
+
+  // State Modal Tambah Cabang Langsung di Preview
+  const [branchModal, setBranchModal] = useState<{
+    isOpen: boolean;
+    parentId: string;
+    branchType: "ya" | "tidak";
+  } | null>(null);
+
+  const [branchFormData, setBranchFormData] = useState({
+    id: "",
+    gejala_id: "",
+    kode_gejala: "",
+    nama_gejala: "",
+    deskripsi: "",
+    ya: "",
+    tidak: "",
+    hasil: "",
+    cf_pakar: 0.8,
+  });
+
+  const [branchTargetMode, setBranchTargetMode] = useState<"existing" | "new">("existing");
+  const [selectedExistingTargetId, setSelectedExistingTargetId] = useState<string>("");
+
+  const [savingBranch, setSavingBranch] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingNode, setDeletingNode] = useState(false);
+
+  const handleDeleteBranchNode = async (id: string) => {
+    setDeletingNode(true);
+    try {
+      // 1. TERLEBIH DAHULU: Putus/bersihkan referensi pada node-node induk yang mengarah ke ID ini
+      const referencingNodes = nodesList.filter(
+        (n) => n.ya === id || n.tidak === id
+      );
+      for (const refNode of referencingNodes) {
+        const updates: Record<string, any> = {};
+        if (refNode.ya === id) updates.ya = null;
+        if (refNode.tidak === id) updates.tidak = null;
+        await updatePohonNode(refNode.id, updates);
+      }
+
+      // 2. KEMUDIAN: Hapus node itu sendiri dari database
+      await deletePohonNode(id);
+
+      toast.success(`Node [${id}] berhasil dihapus`);
+
+      // 3. Refresh data induk secara otomatis
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+
+      setSelectedNodeId(null);
+      setDeleteConfirmId(null);
+    } catch (err) {
+      toast.error(`Gagal menghapus node [${id}]`);
+      console.error(err);
+    } finally {
+      setDeletingNode(false);
+    }
+  };
+
+  // Handler untuk membersihkan jalur terputus (missing target ?)
+  const handleClearMissingLink = async (targetId: string) => {
+    setDeletingNode(true);
+    try {
+      const referencingNodes = nodesList.filter(
+        (n) => n.ya === targetId || n.tidak === targetId
+      );
+      for (const refNode of referencingNodes) {
+        const updates: Record<string, any> = {};
+        if (refNode.ya === targetId) updates.ya = null;
+        if (refNode.tidak === targetId) updates.tidak = null;
+        await updatePohonNode(refNode.id, updates);
+      }
+
+      toast.success(`Jalur terputus [${targetId}] berhasil dibersihkan!`);
+
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+
+      setSelectedNodeId(null);
+    } catch (err) {
+      toast.error("Gagal membersihkan jalur terputus");
+      console.error(err);
+    } finally {
+      setDeletingNode(false);
+    }
+  };
+
+  // Handler untuk buat node baru langsung mengisi ID missing target
+  const handleCreateMissingNode = (targetId: string) => {
+    const parentNode = nodesList.find((n) => n.ya === targetId || n.tidak === targetId);
+    const parentId = parentNode ? parentNode.id : "node";
+    const branchType = parentNode?.ya === targetId ? "ya" : "tidak";
+
+    setBranchFormData({
+      id: targetId,
+      gejala_id: "",
+      kode_gejala: "",
+      nama_gejala: "",
+      deskripsi: "",
+      ya: "",
+      tidak: "",
+      hasil: "",
+      cf_pakar: 0.8,
+    });
+
+    setBranchModal({ isOpen: true, parentId, branchType });
+  };
+
+  // Helper Auto ID Unik untuk Preview Modal
+  const generateSmartIdForPreview = useCallback(
+    (gejalaId?: string, hasilVal?: string, customPrefix?: string) => {
+      let basePrefix = customPrefix || "node";
+
+      if (hasilVal) {
+        const pMatch = penyakitList.find((p) => p.id === hasilVal);
+        basePrefix = pMatch ? `${pMatch.id}_confirmed` : `${hasilVal}_confirmed`;
+      } else if (gejalaId) {
+        const gMatch = gejalaList.find((g) => g.id === gejalaId);
+        if (gMatch) {
+          basePrefix = `node_${gMatch.kode.toLowerCase()}`;
+        }
+      }
+
+      let candidate = basePrefix;
+      let counter = 1;
+      const existingIds = new Set(nodesList.map((n) => n.id));
+
+      while (existingIds.has(candidate)) {
+        candidate = `${basePrefix}_${counter}`;
+        counter++;
+      }
+
+      return candidate;
+    },
+    [nodesList, gejalaList, penyakitList]
+  );
+
+  const handleOpenAddBranchModal = (parentId: string, branchType: 'ya' | 'tidak') => {
+    const parentPrefix = parentId.replace(/^(node_|g_?)/i, "");
+    const branchSuffix = branchType === "ya" ? "y" : "t";
+
+    const defaultId = generateSmartIdForPreview(
+      undefined,
+      undefined,
+      `${parentPrefix}_${branchSuffix}`
+    );
+
+    setBranchTargetMode("existing");
+    setSelectedExistingTargetId("");
+
+    setBranchFormData({
+      id: defaultId,
+      gejala_id: "",
+      kode_gejala: "",
+      nama_gejala: "",
+      deskripsi: "",
+      ya: "",
+      tidak: "",
+      hasil: "",
+      cf_pakar: 0.8,
+    });
+
+    setBranchModal({ isOpen: true, parentId, branchType });
+  };
+
+  const handleBranchGejalaChange = (gejalaId: string) => {
+    if (!gejalaId) {
+      setBranchFormData((prev) => ({
+        ...prev,
+        gejala_id: "",
+        kode_gejala: "",
+        nama_gejala: "",
+      }));
+      return;
+    }
+
+    const selectedGejala = gejalaList.find((g) => g.id === gejalaId);
+    if (selectedGejala) {
+      const autoId = generateSmartIdForPreview(selectedGejala.id, undefined);
+      setBranchFormData((prev) => ({
+        ...prev,
+        id: autoId,
+        gejala_id: selectedGejala.id,
+        kode_gejala: selectedGejala.kode,
+        nama_gejala: selectedGejala.nama, // OTOMATIS TERISI DENGAN TEKS GEJALA!
+        cf_pakar: selectedGejala.cf_pakar,
+      }));
+    }
+  };
+
+  const handleBranchHasilChange = (hasilVal: string) => {
+    if (!hasilVal) {
+      setBranchFormData((prev) => ({ ...prev, hasil: "" }));
+      return;
+    }
+
+    const selectedPenyakit = penyakitList.find((p) => p.id === hasilVal);
+    const autoId = generateSmartIdForPreview(undefined, hasilVal);
+    setBranchFormData((prev) => ({
+      ...prev,
+      id: autoId,
+      hasil: hasilVal,
+      nama_gejala: selectedPenyakit
+        ? `Hasil: ${selectedPenyakit.nama} terdeteksi!`
+        : hasilVal === "hama_not_found"
+          ? "Hama tidak dapat diidentifikasi."
+          : hasilVal === "penyakit_not_found"
+            ? "Penyakit tidak dapat diidentifikasi."
+            : prev.nama_gejala,
+    }));
+  };
+
+  const handleSaveBranchNode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!branchModal) return;
+
+    setSavingBranch(true);
+    try {
+      if (branchTargetMode === "existing") {
+        if (!selectedExistingTargetId) {
+          toast.error("Silakan pilih target node atau hasil akhir yang ingin dihubungkan!");
+          setSavingBranch(false);
+          return;
+        }
+
+        const { parentId, branchType } = branchModal;
+        await updatePohonNode(parentId, { [branchType]: selectedExistingTargetId });
+
+        toast.success(
+          `Cabang ${branchType.toUpperCase()} pada [${parentId}] berhasil dihubungkan LANGSUNG ke [${selectedExistingTargetId}]!`
+        );
+
+        if (onRefreshData) {
+          await onRefreshData();
+        }
+
+        setSelectedNodeId(selectedExistingTargetId);
+        setBranchModal(null);
+      } else {
+        // Mode 2: Buat Node Baru
+        let targetId = branchFormData.id.trim();
+        if (!targetId) {
+          targetId = generateSmartIdForPreview(branchFormData.gejala_id, branchFormData.hasil);
+        }
+
+        // Auto-resolve ID conflict
+        if (nodesList.some((n) => n.id === targetId)) {
+          let counter = 1;
+          let resolved = `${targetId}_${counter}`;
+          while (nodesList.some((n) => n.id === resolved)) {
+            counter++;
+            resolved = `${targetId}_${counter}`;
+          }
+          toast.info(`ID disesuaikan otomatis menjadi [${resolved}] agar tidak bentrok.`);
+          targetId = resolved;
+        }
+
+        const matchedGejala = branchFormData.gejala_id
+          ? gejalaList.find((g) => g.id === branchFormData.gejala_id)
+          : null;
+        const finalCfPakar = matchedGejala
+          ? matchedGejala.cf_pakar
+          : parseFloat(String(branchFormData.cf_pakar)) || 0;
+
+        const payload = {
+          id: targetId,
+          gejala_id: branchFormData.gejala_id || null,
+          kode_gejala: branchFormData.kode_gejala || null,
+          nama_gejala: branchFormData.nama_gejala || null,
+          deskripsi: branchFormData.deskripsi || null,
+          ya: branchFormData.ya || null,
+          tidak: branchFormData.tidak || null,
+          hasil: branchFormData.hasil || null,
+          cf_pakar: finalCfPakar,
+        };
+
+        // 1. Insert node baru ke Supabase
+        const inserted = await insertPohonNode(payload);
+
+        // 2. Hubungkan node induk (parent) ke node baru ini
+        const { parentId, branchType } = branchModal;
+        await updatePohonNode(parentId, { [branchType]: inserted.id });
+
+        toast.success(
+          `Node [${inserted.id}] berhasil dibuat & otomatis dihubungkan ke cabang ${branchType.toUpperCase()} pada [${parentId}]!`
+        );
+
+        // 3. Refresh data induk
+        if (onRefreshData) {
+          await onRefreshData();
+        }
+
+        setSelectedNodeId(inserted.id);
+        setBranchModal(null);
+      }
+    } catch (err) {
+      toast.error("Gagal menyimpan sambungan cabang");
+      console.error(err);
+    } finally {
+      setSavingBranch(false);
+    }
+  };
 
   // Reset zoom and pan on type change or opening
   const handleResetZoom = useCallback(() => {
@@ -515,13 +998,9 @@ export const PohonKeputusanPreview = ({
 
   // Calculations for preview structures
   const previewStats = useMemo(() => {
-    const activeNodes = nodesList.filter((node) => {
-      if (previewTreeType === "gabungan") return true;
-      if (previewTreeType === "hama") {
-        return node.id === "root" || node.id.startsWith("h") || node.id === "hama_group" || node.id === "hama_not_found";
-      }
-      return node.id === "root" || node.id.startsWith("p") || node.id === "penyakit_group" || node.id === "penyakit_not_found";
-    });
+    const activeNodes = nodesList.filter((node) =>
+      isNodeInTreeType(node, previewTreeType, nodesList, penyakitList)
+    );
 
     const activeIds = new Set(activeNodes.map((n) => n.id));
     let questionCount = 0;
@@ -537,20 +1016,16 @@ export const PohonKeputusanPreview = ({
     });
 
     return { questionCount, resultCount, brokenTargets };
-  }, [nodesList, previewTreeType]);
+  }, [nodesList, previewTreeType, penyakitList]);
 
   const treePreview = useMemo(() => {
     const previewNodes: PreviewNode[] = [];
     const previewEdges: PreviewEdge[] = [];
     
     // 1. Get active nodes based on previewTreeType
-    const activeNodes = nodesList.filter((node) => {
-      if (previewTreeType === "gabungan") return true;
-      if (previewTreeType === "hama") {
-        return node.id === "root" || node.id.startsWith("h") || node.id === "hama_group" || node.id === "hama_not_found";
-      }
-      return node.id === "root" || node.id.startsWith("p") || node.id === "penyakit_group" || node.id === "penyakit_not_found";
-    });
+    const activeNodes = nodesList.filter((node) =>
+      isNodeInTreeType(node, previewTreeType, nodesList, penyakitList)
+    );
     
     const activeIds = new Set(activeNodes.map(node => node.id));
     
@@ -729,7 +1204,7 @@ export const PohonKeputusanPreview = ({
     
     // Find db node or return virtual/missing representation
     const dbNode = nodesList.find(n => n.id === pNode.id);
-    if (dbNode) return dbNode;
+    if (dbNode) return { ...dbNode, isMissing: false };
     
     return {
       id: pNode.id,
@@ -741,7 +1216,8 @@ export const PohonKeputusanPreview = ({
       tidak: null,
       hasil: null,
       cf_pakar: 0,
-      subtitle: pNode.subtitle
+      subtitle: pNode.subtitle,
+      isMissing: true
     } as any;
   }, [selectedNodeId, treePreview.nodes, nodesList]);
 
@@ -912,23 +1388,95 @@ export const PohonKeputusanPreview = ({
                     )}
                   </div>
 
-                  {/* Edit Shortcut */}
-                  {!selectedNode.id.startsWith("missing") && (
-                    <div className="pt-2">
-                      <Button
-                        size="sm"
-                        className="w-full bg-pink-600 hover:bg-pink-700 text-xs py-1 h-8"
-                        onClick={() => {
-                          const nodeObj = nodesList.find(n => n.id === selectedNode.id);
-                          if (nodeObj) {
-                            onOpenChange(false);
-                            onEditNode(nodeObj);
-                          }
-                        }}
-                      >
-                        <Edit className="w-3.5 h-3.5 mr-1" />
-                        Edit Node Ini
-                      </Button>
+                  {/* Action Shortcuts */}
+                  {selectedNode.isMissing ? (
+                    <div className="pt-2 space-y-2">
+                      <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-red-800 space-y-1">
+                        <p className="font-semibold flex items-center gap-1 text-[11px]">
+                          <span>⚠️</span> Jalur Terputus / Target Hilang
+                        </p>
+                        <p className="text-[10px] leading-relaxed text-red-700">
+                          Target node <code className="font-bold font-mono">[{selectedNode.id}]</code> dirujuk oleh node induk tetapi belum dibuat di database.
+                        </p>
+                      </div>
+                      <div className="space-y-1.5 pt-1">
+                        <Button
+                          size="sm"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-8 px-1"
+                          onClick={() => handleCreateMissingNode(selectedNode.id)}
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1" />
+                          + Buat Node [{selectedNode.id}] Sekarang
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full border-red-300 text-red-700 hover:bg-red-50 text-[11px] h-8 px-1"
+                          onClick={() => handleClearMissingLink(selectedNode.id)}
+                          disabled={deletingNode}
+                        >
+                          {deletingNode ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Membersihkan...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3.5 h-3.5 mr-1" /> Putus Jalur Terputus Ini
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <Button
+                          size="sm"
+                          className="bg-pink-600 hover:bg-pink-700 text-white text-[11px] py-1 h-8 px-1"
+                          onClick={() => {
+                            const nodeObj = nodesList.find(n => n.id === selectedNode.id);
+                            if (nodeObj) {
+                              onOpenChange(false);
+                              onEditNode(nodeObj);
+                            }
+                          }}
+                        >
+                          <Edit className="w-3.5 h-3.5 mr-1" />
+                          Edit Node
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 text-[11px] py-1 h-8 px-1"
+                          onClick={() => setDeleteConfirmId(selectedNode.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />
+                          Hapus Node
+                        </Button>
+                      </div>
+
+                      {!selectedNode.hasil && (
+                        <div className="grid grid-cols-2 gap-1.5 pt-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] h-8 px-1"
+                            onClick={() => handleOpenAddBranchModal(selectedNode.id, 'ya')}
+                          >
+                            <Plus className="w-3 h-3 mr-0.5" />
+                            + Cabang YA
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-red-50 hover:bg-red-100 text-red-800 border-red-300 text-[11px] h-8 px-1"
+                            onClick={() => handleOpenAddBranchModal(selectedNode.id, 'tidak')}
+                          >
+                            <Plus className="w-3 h-3 mr-0.5" />
+                            + Cabang TIDAK
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1199,6 +1747,320 @@ export const PohonKeputusanPreview = ({
             )}
           </div>
         </div>
+
+        {/* Inner Dialog untuk Tambah Cabang Langsung di Preview */}
+        {branchModal && (
+          <Dialog
+            open={branchModal.isOpen}
+            onOpenChange={(open) => {
+              if (!open) setBranchModal(null);
+            }}
+          >
+            <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto z-[9999] bg-white border border-pink-100 shadow-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-base flex items-center gap-2 text-gray-900">
+                  <span className="p-1 bg-pink-100 rounded-md text-pink-600">➕</span> Tambah Cabang {branchModal.branchType.toUpperCase()} untuk Node [{branchModal.parentId}]
+                </DialogTitle>
+              </DialogHeader>
+
+              <form onSubmit={handleSaveBranchNode} className="space-y-3.5 pt-2 text-xs">
+                {/* Selector Mode Sambungan Cabang */}
+                <div className="flex rounded-lg border border-pink-200 p-1 bg-pink-50/40 gap-1">
+                  <button
+                    type="button"
+                    className={`flex-1 text-[11px] font-semibold py-1.5 px-2 rounded-md transition-all ${
+                      branchTargetMode === "existing"
+                        ? "bg-white text-pink-700 shadow-sm border border-pink-300"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    onClick={() => setBranchTargetMode("existing")}
+                  >
+                    🎯 Hubungkan ke Node/Hasil yang Sudah Ada (Langsung)
+                  </button>
+                  <button
+                    type="button"
+                    className={`flex-1 text-[11px] font-semibold py-1.5 px-2 rounded-md transition-all ${
+                      branchTargetMode === "new"
+                        ? "bg-white text-pink-700 shadow-sm border border-pink-300"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                    onClick={() => setBranchTargetMode("new")}
+                  >
+                    ➕ Buat Node Langkah Baru
+                  </button>
+                </div>
+
+                {branchTargetMode === "existing" ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="p-3 rounded-lg border border-pink-200 bg-pink-50/70 text-pink-900 space-y-1">
+                      <p className="font-semibold text-xs flex items-center gap-1.5">
+                        <span>🔗</span> Sambungan Langsung
+                      </p>
+                      <p className="text-[11px] text-pink-800 leading-relaxed">
+                        Pilih node atau hasil akhir diagnosa yang sudah ada di pohon untuk dihubungkan langsung dari cabang <strong className="uppercase font-mono">[{branchModal.branchType}]</strong> pada <strong className="font-mono">[{branchModal.parentId}]</strong> tanpa membuat node baru.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="existing_target_node" className="text-xs font-semibold">
+                        Pilih Target Node / Hasil Akhir <span className="text-red-500">*</span>
+                      </Label>
+                      <select
+                        id="existing_target_node"
+                        value={selectedExistingTargetId}
+                        onChange={(e) => setSelectedExistingTargetId(e.target.value)}
+                        className="w-full px-2.5 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-xs bg-white font-medium"
+                        required
+                      >
+                        <option value="">-- Pilih Node Target yang Sudah Ada --</option>
+                        
+                        <optgroup label="🏆 Hasil Akhir / Terminal Node">
+                          {nodesList
+                            .filter((n) => n.hasil)
+                            .map((n) => {
+                              const penyakit = penyakitList.find((p) => p.id === n.hasil);
+                              const labelText = penyakit
+                                ? `Hasil: ${penyakit.kode} - ${penyakit.nama}`
+                                : n.hasil === "hama_not_found"
+                                  ? "Hasil: Hama Tidak Teridentifikasi"
+                                  : n.hasil === "penyakit_not_found"
+                                    ? "Hasil: Penyakit Tidak Teridentifikasi"
+                                    : `Hasil: ${n.hasil}`;
+                              return (
+                                <option key={n.id} value={n.id}>
+                                  🏆 [{n.id}] {labelText}
+                                </option>
+                              );
+                            })}
+                        </optgroup>
+
+                        <optgroup label="🔍 Node Pengecekan Gejala / Pertanyaan">
+                          {nodesList
+                            .filter((n) => !n.hasil && n.id !== branchModal.parentId)
+                            .map((n) => (
+                              <option key={n.id} value={n.id}>
+                                🔍 [{n.id}] {n.kode_gejala ? `${n.kode_gejala}: ` : ""}{n.nama_gejala || n.id}
+                              </option>
+                            ))}
+                        </optgroup>
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* ID Node */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="preview_node_id" className="text-xs font-semibold">
+                          ID Langkah / Node (Unik) <span className="text-red-500">*</span>
+                        </Label>
+                        <span className="text-[10px] text-pink-600 font-medium">
+                          *Terisi otomatis
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          id="preview_node_id"
+                          placeholder="Contoh: h01_g04_y"
+                          value={branchFormData.id}
+                          onChange={(e) =>
+                            setBranchFormData((prev) => ({ ...prev, id: e.target.value.trim() }))
+                          }
+                          className="h-8 text-xs font-mono"
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="whitespace-nowrap text-[11px] h-8 border-pink-200 hover:bg-pink-50 text-pink-700 font-medium"
+                          onClick={() => {
+                            const autoId = generateSmartIdForPreview(
+                              branchFormData.gejala_id,
+                              branchFormData.hasil,
+                              `${branchModal.parentId}_${branchModal.branchType === "ya" ? "y" : "t"}`
+                            );
+                            setBranchFormData((prev) => ({ ...prev, id: autoId }));
+                            toast.success(`ID disesuaikan: [${autoId}]`);
+                          }}
+                        >
+                          ✨ Auto ID
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Pilih Gejala (jika ada) */}
+                    <div className="space-y-1 bg-pink-50/50 p-2.5 rounded-lg border border-pink-100">
+                      <Label htmlFor="preview_gejala" className="text-xs font-semibold text-pink-950 flex items-center gap-1">
+                        <span>🔍</span> Hubungkan dengan Gejala (Pilih untuk Otomatis Isi Teks)
+                      </Label>
+                      <select
+                        id="preview_gejala"
+                        value={branchFormData.gejala_id}
+                        onChange={(e) => handleBranchGejalaChange(e.target.value)}
+                        className="w-full px-2.5 py-1.5 border border-pink-200 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-xs bg-white"
+                      >
+                        <option value="">
+                          -- Bukan Pengecekan Gejala (Direct Terminal Node / Hasil) --
+                        </option>
+                        {gejalaList.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.kode} - {g.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Teks Pertanyaan / Keterangan Langkah */}
+                    <div className="space-y-1">
+                      <Label htmlFor="preview_nama_gejala" className="text-xs font-semibold">
+                        Teks Pertanyaan / Keterangan Langkah <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="preview_nama_gejala"
+                        placeholder="Masukkan pertanyaan atau keterangan langkah"
+                        value={branchFormData.nama_gejala}
+                        onChange={(e) =>
+                          setBranchFormData((prev) => ({
+                            ...prev,
+                            nama_gejala: e.target.value,
+                          }))
+                        }
+                        className="h-8 text-xs"
+                        required
+                      />
+                      <p className="text-[10px] text-gray-400">
+                        💡 Terisi otomatis saat memilih gejala di atas, atau dapat diubah manual.
+                      </p>
+                    </div>
+
+                    {/* Pilih Hasil Akhir Diagnosa (Opsional jika ini node terminal) */}
+                    <div className="space-y-1">
+                      <Label htmlFor="preview_hasil" className="text-xs font-semibold">
+                        Atau Tetapkan Sebagai Hasil Akhir Diagnosa (Terminal Node Baru)
+                      </Label>
+                      <select
+                        id="preview_hasil"
+                        value={branchFormData.hasil}
+                        onChange={(e) => handleBranchHasilChange(e.target.value)}
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 text-xs bg-white"
+                      >
+                        <option value="">-- Bukan Hasil Akhir (Lanjut ke Pertanyaan Berikutnya) --</option>
+                        <optgroup label="🐛 Hasil Hama">
+                          {penyakitList
+                            .filter((p) => p.tipe === "hama" || p.id.startsWith("h"))
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.kode} - {p.nama}
+                              </option>
+                            ))}
+                          <option value="hama_not_found">Hama Tidak Teridentifikasi</option>
+                        </optgroup>
+                        <optgroup label="🦠 Hasil Penyakit">
+                          {penyakitList
+                            .filter((p) => p.tipe === "penyakit" || p.id.startsWith("p"))
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.kode} - {p.nama}
+                              </option>
+                            ))}
+                          <option value="penyakit_not_found">Penyakit Tidak Teridentifikasi</option>
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    {/* Deskripsi */}
+                    <div className="space-y-1">
+                      <Label htmlFor="preview_deskripsi" className="text-xs font-semibold">
+                        Deskripsi / Petunjuk Tambahan (Opsional)
+                      </Label>
+                      <Input
+                        id="preview_deskripsi"
+                        placeholder="Keterangan bantuan bagi petani"
+                        value={branchFormData.deskripsi}
+                        onChange={(e) =>
+                          setBranchFormData((prev) => ({
+                            ...prev,
+                            deskripsi: e.target.value,
+                          }))
+                        }
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex justify-end gap-2 pt-3 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBranchModal(null)}
+                    disabled={savingBranch}
+                    className="h-8 text-xs"
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={savingBranch}
+                    className="bg-pink-600 hover:bg-pink-700 text-white h-8 text-xs"
+                  >
+                    {savingBranch ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Menyimpan...
+                      </>
+                    ) : branchTargetMode === "existing" ? (
+                      "Simpan Sambungan Langsung"
+                    ) : (
+                      "Simpan Langkah Cabang Baru"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Confirm Delete Alert Dialog */}
+        <AlertDialog
+          open={!!deleteConfirmId}
+          onOpenChange={(open) => {
+            if (!open) setDeleteConfirmId(null);
+          }}
+        >
+          <AlertDialogContent className="z-[99999]">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Hapus Langkah Pohon Keputusan?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Apakah Anda yakin ingin menghapus node{" "}
+                <strong className="text-red-600 font-mono">[{deleteConfirmId}]</strong>? 
+                Node ini dan referensi jalurnya di diagram akan dihapus secara permanen.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingNode}>Batal</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  if (deleteConfirmId) handleDeleteBranchNode(deleteConfirmId);
+                }}
+                disabled={deletingNode}
+              >
+                {deletingNode ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Menghapus...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-1" /> Ya, Hapus Node Ini
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

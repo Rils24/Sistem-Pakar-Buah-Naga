@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { UserCircle, Mail, User, CheckCircle, Lock, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import type { User as UserType } from '@/types';
 
 interface ProfilProps {
@@ -18,6 +19,7 @@ interface FeedbackMessage {
 }
 
 export const Profil = ({ user, onUpdate }: ProfilProps) => {
+  const { verifyCurrentPassword } = useAuth();
   const [formData, setFormData] = useState({
     nama: user.nama,
     email: user.email
@@ -55,7 +57,9 @@ export const Profil = ({ user, onUpdate }: ProfilProps) => {
     setPasswordMessage({ type: '', text: '' });
     setSavingPassword(true);
 
-    if (passwordData.currentPassword !== user.password) {
+    // Verifikasi password saat ini menggunakan bcrypt
+    const isValid = await verifyCurrentPassword(passwordData.currentPassword);
+    if (!isValid) {
       setPasswordMessage({ type: 'error', text: 'Password saat ini salah' });
       setSavingPassword(false);
       return;
@@ -74,6 +78,7 @@ export const Profil = ({ user, onUpdate }: ProfilProps) => {
     }
 
     try {
+      // Password akan di-hash oleh updateProfile di useAuth
       const result = await onUpdate({ password: passwordData.newPassword });
       if (result.success) {
         setPasswordMessage({ type: 'success', text: 'Password berhasil diubah' });
