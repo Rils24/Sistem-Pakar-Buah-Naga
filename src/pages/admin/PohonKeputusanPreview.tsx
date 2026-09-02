@@ -52,152 +52,216 @@ interface PohonKeputusanPreviewProps {
 
 const STATIC_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
   // ROOT & GROUPS
-  "root": { x: 1500, y: 50 },
-  "hama_group": { x: 750, y: 150 },
-  "penyakit_group": { x: 2250, y: 150 },
+  "root": { x: 3600, y: 50 },
+  "hama_group": { x: 3600, y: 150 },
+  "penyakit_group": { x: 8000, y: 150 },
 
-  // === HAMA COLUMNS ===
-  // H01: Kutu Putih (Col 0, X-Center: 350)
-  "h01_check": { x: 300, y: 250 },
-  "h01_g02": { x: 220, y: 350 },
-  "h01_g03_y": { x: 140, y: 450 },
-  "h01_g03_t": { x: 300, y: 450 },
-  "h01_g04_y": { x: 80, y: 550 },
-  "h01_g04_t": { x: 200, y: 550 },
-  "h01_g04_tr": { x: 400, y: 550 },
-  "h01_g05": { x: 60, y: 650 },
-  "h01_g06": { x: 60, y: 750 },
-  "h01_confirmed": { x: 220, y: 850 },
+  // === HAMA COLUMNS (SPACED LATTICE TREE) ===
+  // H01: Kutu Putih (Col 0, X-Center: 600)
+  "h01_check": { x: 600, y: 250 },
+  "h01_g02": { x: 490, y: 400 },
+  "h01_g03_y": { x: 380, y: 550 },
+  "h01_g03_t": { x: 600, y: 550 },
+  "h01_g04_y": { x: 380, y: 700 },
+  "h01_g04_t": { x: 600, y: 700 },
+  "h01_g04_tr": { x: 820, y: 700 },
+  "h01_g05_y": { x: 380, y: 850 },
+  "h01_g05_t": { x: 600, y: 850 },
+  "h01_g05_tr": { x: 820, y: 850 },
+  "h01_g06_y": { x: 380, y: 1000 },
+  "h01_g06_t": { x: 600, y: 1000 },
+  "h01_g06_tr": { x: 820, y: 1000 },
+  "h01_confirmed": { x: 600, y: 1150 },
 
-  // H02: Aphids (Col 1, X-Center: 750)
-  "h02_check": { x: 700, y: 250 },
-  "h02_g08": { x: 620, y: 350 },
-  "h02_g09_y": { x: 540, y: 450 },
-  "h02_g09_t": { x: 700, y: 450 },
-  "h02_g10": { x: 480, y: 550 },
-  "h02_g10_t": { x: 620, y: 550 },
-  "h02_g11": { x: 480, y: 650 },
-  "h02_confirmed": { x: 620, y: 750 },
+  // H02: Aphids (Col 1, X-Center: 1600)
+  "h02_check": { x: 1600, y: 250 },
+  "h02_g08": { x: 1490, y: 400 },
+  "h02_g09_y": { x: 1380, y: 550 },
+  "h02_g09_t": { x: 1600, y: 550 },
+  "h02_g10_y": { x: 1380, y: 700 },
+  "h02_g10_t": { x: 1600, y: 700 },
+  "h02_g10_tr": { x: 1820, y: 700 },
+  "h02_g11_y": { x: 1380, y: 850 },
+  "h02_g11_t": { x: 1600, y: 850 },
+  "h02_g11_tr": { x: 1820, y: 850 },
+  "h02_confirmed": { x: 1600, y: 1000 },
 
-  // H03: Kutu Sisik (Col 2, X-Center: 1100)
-  "h03_check": { x: 1100, y: 250 },
-  "h03_g13": { x: 1020, y: 350 },
-  "h03_g14_y": { x: 940, y: 450 },
-  "h03_g14_t": { x: 1100, y: 450 },
-  "h03_g15": { x: 880, y: 550 },
-  "h03_g15_t": { x: 1020, y: 550 },
-  "h03_confirmed": { x: 1020, y: 650 },
+  // H03: Kutu Sisik (Col 2, X-Center: 2600)
+  "h03_check": { x: 2600, y: 250 },
+  "h03_g13": { x: 2490, y: 400 },
+  "h03_g14_y": { x: 2380, y: 550 },
+  "h03_g14_t": { x: 2600, y: 550 },
+  "h03_g15_y": { x: 2380, y: 700 },
+  "h03_g15_t": { x: 2600, y: 700 },
+  "h03_g15_tr": { x: 2820, y: 700 },
+  "h03_confirmed": { x: 2600, y: 850 },
 
-  // H04: Lalat Buah (Col 3, X-Center: 1500)
-  "h04_check": { x: 1500, y: 250 },
-  "h04_g17": { x: 1420, y: 350 },
-  "h04_g18_y": { x: 1340, y: 450 },
-  "h04_g18_t": { x: 1500, y: 450 },
-  "h04_g19_y": { x: 1260, y: 550 },
-  "h04_g19_t": { x: 1420, y: 550 },
-  "h04_g19_tr": { x: 1580, y: 550 },
-  "h04_g20": { x: 1260, y: 650 },
-  "h04_confirmed": { x: 1420, y: 750 },
+  // H04: Lalat Buah (Col 3, X-Center: 3600)
+  "h04_check": { x: 3600, y: 250 },
+  "h04_g17": { x: 3490, y: 400 },
+  "h04_g18_y": { x: 3380, y: 550 },
+  "h04_g18_t": { x: 3600, y: 550 },
+  "h04_g19_y": { x: 3380, y: 700 },
+  "h04_g19_t": { x: 3600, y: 700 },
+  "h04_g19_tr": { x: 3820, y: 700 },
+  "h04_g20_y": { x: 3380, y: 850 },
+  "h04_g20_t": { x: 3600, y: 850 },
+  "h04_g20_tr": { x: 3820, y: 850 },
+  "h04_confirmed": { x: 3600, y: 1000 },
 
-  // H05: Bekicot (Col 4, X-Center: 1900)
-  "h05_check": { x: 1900, y: 250 },
-  "h05_g22": { x: 1820, y: 350 },
-  "h05_g23_y": { x: 1740, y: 450 },
-  "h05_g23_t": { x: 1900, y: 450 },
-  "h05_g24": { x: 1740, y: 550 },
-  "h05_g25": { x: 1740, y: 650 },
-  "h05_g26": { x: 1740, y: 750 },
-  "h05_confirmed": { x: 1820, y: 850 },
+  // H05: Bekicot (Col 4, X-Center: 4600)
+  "h05_check": { x: 4600, y: 250 },
+  "h05_g22": { x: 4490, y: 400 },
+  "h05_g23_y": { x: 4380, y: 550 },
+  "h05_g23_t": { x: 4600, y: 550 },
+  "h05_g24_y": { x: 4380, y: 700 },
+  "h05_g24_t": { x: 4600, y: 700 },
+  "h05_g24_tr": { x: 4820, y: 700 },
+  "h05_g25_y": { x: 4380, y: 850 },
+  "h05_g25_t": { x: 4600, y: 850 },
+  "h05_g25_tr": { x: 4820, y: 850 },
+  "h05_g26_y": { x: 4380, y: 1000 },
+  "h05_g26_t": { x: 4600, y: 1000 },
+  "h05_g26_tr": { x: 4820, y: 1000 },
+  "h05_confirmed": { x: 4600, y: 1150 },
 
-  // H06: Belalang (Col 5, X-Center: 2300)
-  "h06_check": { x: 2300, y: 250 },
-  "h06_g28": { x: 2220, y: 350 },
-  "h06_g29_y": { x: 2140, y: 450 },
-  "h06_g29_t": { x: 2300, y: 450 },
-  "h06_g30": { x: 2060, y: 550 },
-  "h06_g30_t": { x: 2220, y: 550 },
-  "h06_g31": { x: 2060, y: 650 },
-  "h06_confirmed": { x: 2220, y: 750 },
+  // H06: Belalang (Col 5, X-Center: 5600)
+  "h06_check": { x: 5600, y: 250 },
+  "h06_g28": { x: 5490, y: 400 },
+  "h06_g29_y": { x: 5380, y: 550 },
+  "h06_g29_t": { x: 5600, y: 550 },
+  "h06_g30_y": { x: 5380, y: 700 },
+  "h06_g30_t": { x: 5600, y: 700 },
+  "h06_g30_tr": { x: 5820, y: 700 },
+  "h06_g31_y": { x: 5380, y: 850 },
+  "h06_g31_t": { x: 5600, y: 850 },
+  "h06_g31_tr": { x: 5820, y: 850 },
+  "h06_confirmed": { x: 5600, y: 1000 },
 
-  // H07: Tungau (Col 6, X-Center: 2700)
-  "h07_check": { x: 2700, y: 250 },
-  "h07_g33": { x: 2620, y: 350 },
-  "h07_g34_y": { x: 2540, y: 450 },
-  "h07_g34_t": { x: 2700, y: 450 },
-  "h07_g35_y": { x: 2460, y: 550 },
-  "h07_g35_t": { x: 2620, y: 550 },
-  "h07_g35_tr": { x: 2780, y: 550 },
-  "h07_g36": { x: 2460, y: 650 },
-  "h07_g37": { x: 2460, y: 750 },
-  "h07_confirmed": { x: 2620, y: 850 },
+  // H07: Tungau (Col 6, X-Center: 6600)
+  "h07_check": { x: 6600, y: 250 },
+  "h07_g33": { x: 6490, y: 400 },
+  "h07_g34_y": { x: 6380, y: 550 },
+  "h07_g34_t": { x: 6600, y: 550 },
+  "h07_g35_y": { x: 6380, y: 700 },
+  "h07_g35_t": { x: 6600, y: 700 },
+  "h07_g35_tr": { x: 6820, y: 700 },
+  "h07_g36_y": { x: 6380, y: 850 },
+  "h07_g36_t": { x: 6600, y: 850 },
+  "h07_g36_tr": { x: 6820, y: 850 },
+  "h07_g37_y": { x: 6380, y: 1000 },
+  "h07_g37_t": { x: 6600, y: 1000 },
+  "h07_g37_tr": { x: 6820, y: 1000 },
+  "h07_confirmed": { x: 6600, y: 1150 },
   
-  "hama_not_found": { x: 2880, y: 350 },
+  "hama_not_found": { x: 7200, y: 250 },
 
-  // === PENYAKIT COLUMNS ===
-  // P01: Kanker Batang (Col 0, X-Center: 300)
-  "p01_check": { x: 300, y: 250 },
-  "p01_g39": { x: 300, y: 350 },
-  "p01_g40_y": { x: 220, y: 450 },
-  "p01_g40_t": { x: 380, y: 450 },
-  "p01_g41": { x: 220, y: 550 },
-  "p01_g42": { x: 220, y: 650 },
-  "p01_g43": { x: 220, y: 750 },
-  "p01_g44": { x: 220, y: 850 },
-  "p01_confirmed": { x: 300, y: 950 },
+  // === PENYAKIT COLUMNS (SPACED LATTICE TREE WITH BOTTOM RIGHT NOT_FOUND NODES) ===
+  "p01_check": { x: 600, y: 250 },
+  "p01_g39": { x: 490, y: 400 },
+  "p01_g40_y": { x: 380, y: 550 },
+  "p01_g40_t": { x: 600, y: 550 },
+  "p01_g41_y": { x: 380, y: 700 },
+  "p01_g41_t": { x: 600, y: 700 },
+  "p01_g41_tr": { x: 820, y: 700 },
+  "p01_g42_y": { x: 380, y: 850 },
+  "p01_g42_t": { x: 600, y: 850 },
+  "p01_g42_tr": { x: 820, y: 850 },
+  "p01_g43_y": { x: 380, y: 1000 },
+  "p01_g43_t": { x: 600, y: 1000 },
+  "p01_g43_tr": { x: 820, y: 1000 },
+  "p01_g44_y": { x: 380, y: 1150 },
+  "p01_g44_t": { x: 600, y: 1150 },
+  "p01_g44_tr": { x: 820, y: 1150 },
+  "p01_confirmed": { x: 600, y: 1300 },
+  "p01_not_found": { x: 820, y: 1300 },
 
-  // P02: Antraknosa (Col 1, X-Center: 700)
-  "p02_check": { x: 700, y: 250 },
-  "p02_g46": { x: 620, y: 350 },
-  "p02_g47_y": { x: 540, y: 450 },
-  "p02_g47_t": { x: 700, y: 450 },
-  "p02_g48": { x: 540, y: 550 },
-  "p02_g49": { x: 540, y: 650 },
-  "p02_confirmed": { x: 620, y: 750 },
+  "p02_check": { x: 1600, y: 250 },
+  "p02_g46": { x: 1490, y: 400 },
+  "p02_g47_y": { x: 1380, y: 550 },
+  "p02_g47_t": { x: 1600, y: 550 },
+  "p02_g48_y": { x: 1380, y: 700 },
+  "p02_g48_t": { x: 1600, y: 700 },
+  "p02_g48_tr": { x: 1820, y: 700 },
+  "p02_g49_y": { x: 1380, y: 850 },
+  "p02_g49_t": { x: 1600, y: 850 },
+  "p02_g49_tr": { x: 1820, y: 850 },
+  "p02_confirmed": { x: 1600, y: 1000 },
+  "p02_not_found": { x: 1820, y: 1000 },
 
-  // P03: Busuk Batang (Col 2, X-Center: 1100)
-  "p03_check": { x: 1100, y: 250 },
-  "p03_g51": { x: 1100, y: 350 },
-  "p03_g52_y": { x: 1000, y: 450 },
-  "p03_g52_t": { x: 1200, y: 450 },
-  "p03_g53": { x: 1000, y: 550 },
-  "p03_g54": { x: 1000, y: 650 },
-  "p03_g55": { x: 1000, y: 750 },
-  "p03_g56": { x: 1000, y: 850 },
-  "p03_g57": { x: 1000, y: 950 },
-  "p03_g58": { x: 1000, y: 1050 },
-  "p03_g59": { x: 1000, y: 1150 },
-  "p03_g60": { x: 1000, y: 1250 },
-  "p03_g61": { x: 1000, y: 1350 },
-  "p03_confirmed": { x: 1100, y: 1450 },
+  "p03_check": { x: 2600, y: 250 },
+  "p03_g51": { x: 2490, y: 400 },
+  "p03_g52_y": { x: 2380, y: 550 },
+  "p03_g52_t": { x: 2600, y: 550 },
+  "p03_g53_y": { x: 2380, y: 700 },
+  "p03_g53_t": { x: 2600, y: 700 },
+  "p03_g53_tr": { x: 2820, y: 700 },
+  "p03_g54_y": { x: 2380, y: 850 },
+  "p03_g54_t": { x: 2600, y: 850 },
+  "p03_g54_tr": { x: 2820, y: 850 },
+  "p03_g55_y": { x: 2380, y: 1000 },
+  "p03_g55_t": { x: 2600, y: 1000 },
+  "p03_g55_tr": { x: 2820, y: 1000 },
+  "p03_g56_y": { x: 2380, y: 1150 },
+  "p03_g56_t": { x: 2600, y: 1150 },
+  "p03_g56_tr": { x: 2820, y: 1150 },
+  "p03_g57_y": { x: 2380, y: 1300 },
+  "p03_g57_t": { x: 2600, y: 1300 },
+  "p03_g57_tr": { x: 2820, y: 1300 },
+  "p03_g58_y": { x: 2380, y: 1450 },
+  "p03_g58_t": { x: 2600, y: 1450 },
+  "p03_g58_tr": { x: 2820, y: 1450 },
+  "p03_g59_y": { x: 2380, y: 1600 },
+  "p03_g59_t": { x: 2600, y: 1600 },
+  "p03_g59_tr": { x: 2820, y: 1600 },
+  "p03_g60_y": { x: 2380, y: 1750 },
+  "p03_g60_t": { x: 2600, y: 1750 },
+  "p03_g60_tr": { x: 2820, y: 1750 },
+  "p03_g61_y": { x: 2380, y: 1900 },
+  "p03_g61_t": { x: 2600, y: 1900 },
+  "p03_g61_tr": { x: 2820, y: 1900 },
+  "p03_confirmed": { x: 2600, y: 2050 },
+  "p03_not_found": { x: 2820, y: 2050 },
 
-  // P04: Kudis (Col 3, X-Center: 1500)
-  "p04_check": { x: 1500, y: 250 },
-  "p04_g63": { x: 1420, y: 350 },
-  "p04_g64_y": { x: 1340, y: 450 },
-  "p04_g64_t": { x: 1500, y: 450 },
-  "p04_g65": { x: 1340, y: 550 },
-  "p04_g66": { x: 1340, y: 650 },
-  "p04_confirmed": { x: 1420, y: 750 },
+  "p04_check": { x: 3600, y: 250 },
+  "p04_g63": { x: 3490, y: 400 },
+  "p04_g64_y": { x: 3380, y: 550 },
+  "p04_g64_t": { x: 3600, y: 550 },
+  "p04_g65_y": { x: 3380, y: 700 },
+  "p04_g65_t": { x: 3600, y: 700 },
+  "p04_g65_tr": { x: 3820, y: 700 },
+  "p04_g66_y": { x: 3380, y: 850 },
+  "p04_g66_t": { x: 3600, y: 850 },
+  "p04_g66_tr": { x: 3820, y: 850 },
+  "p04_confirmed": { x: 3600, y: 1000 },
+  "p04_not_found": { x: 3820, y: 1000 },
 
-  // P05: Mosaik (Col 4, X-Center: 1900)
-  "p05_check": { x: 1900, y: 250 },
-  "p05_g68": { x: 1820, y: 350 },
-  "p05_g69_y": { x: 1740, y: 450 },
-  "p05_g69_t": { x: 1900, y: 450 },
-  "p05_g70": { x: 1740, y: 550 },
-  "p05_g71": { x: 1740, y: 650 },
-  "p05_confirmed": { x: 1820, y: 750 },
+  "p05_check": { x: 4600, y: 250 },
+  "p05_g68": { x: 4490, y: 400 },
+  "p05_g69_y": { x: 4380, y: 550 },
+  "p05_g69_t": { x: 4600, y: 550 },
+  "p05_g70_y": { x: 4380, y: 700 },
+  "p05_g70_t": { x: 4600, y: 700 },
+  "p05_g70_tr": { x: 4820, y: 700 },
+  "p05_g71_y": { x: 4380, y: 850 },
+  "p05_g71_t": { x: 4600, y: 850 },
+  "p05_g71_tr": { x: 4820, y: 850 },
+  "p05_confirmed": { x: 4600, y: 1000 },
+  "p05_not_found": { x: 4820, y: 1000 },
 
-  // P06: Puru Akar (Col 5, X-Center: 2300)
-  "p06_check": { x: 2300, y: 250 },
-  "p06_g73": { x: 2220, y: 350 },
-  "p06_g74_y": { x: 2140, y: 450 },
-  "p06_g74_t": { x: 2300, y: 450 },
-  "p06_g75": { x: 2140, y: 550 },
-  "p06_g76": { x: 2140, y: 650 },
-  "p06_confirmed": { x: 2220, y: 750 },
-  
-  "penyakit_not_found": { x: 2480, y: 350 }
+  "p06_check": { x: 5600, y: 250 },
+  "p06_g73": { x: 5490, y: 400 },
+  "p06_g74_y": { x: 5380, y: 550 },
+  "p06_g74_t": { x: 5600, y: 550 },
+  "p06_g75_y": { x: 5380, y: 700 },
+  "p06_g75_t": { x: 5600, y: 700 },
+  "p06_g75_tr": { x: 5820, y: 700 },
+  "p06_g76_y": { x: 5380, y: 850 },
+  "p06_g76_t": { x: 5600, y: 850 },
+  "p06_g76_tr": { x: 5820, y: 850 },
+  "p06_confirmed": { x: 5600, y: 1000 },
+  "p06_not_found": { x: 5820, y: 1000 },
+  "penyakit_not_found": { x: 6600, y: 1000 }
 };
 
 /**
@@ -211,24 +275,32 @@ const getCoords = (
   currentPositions: Record<string, { x: number; y: number }>
 ) => {
   const pos = currentPositions[nodeId];
-  if (!pos) return { x: 0, y: 0 };
   
-  // In combined view, offset all penyakit nodes horizontally to prevent overlap
-  if (treeType === 'gabungan' && (nodeId.startsWith('p0') || nodeId === 'penyakit_group' || nodeId === 'penyakit_not_found')) {
-    return {
-      x: pos.x + 2800,
-      y: pos.y
-    };
+  // In combined view, offset all penyakit nodes horizontally to prevent overlap with Hama
+  if (treeType === 'gabungan') {
+    if (nodeId === 'root') return { x: 7600, y: 50 };
+    if (nodeId === 'hama_group') return { x: 4000, y: 150 };
+    if (nodeId === 'penyakit_group') return { x: 11200, y: 150 };
+    
+    if (nodeId.startsWith('p0') || nodeId === 'penyakit_not_found') {
+      const basePos = pos || { x: 600, y: 250 };
+      return {
+        x: basePos.x + 7600,
+        y: basePos.y
+      };
+    }
   }
+  
+  if (!pos) return { x: 0, y: 0 };
   
   // Shift root and groups slightly in single-tree views for aesthetic layout
   if (treeType === 'hama') {
-    if (nodeId === 'root') return { x: 300, y: 50 };
-    if (nodeId === 'hama_group') return { x: 300, y: 150 };
+    if (nodeId === 'root') return { x: 3600, y: 50 };
+    if (nodeId === 'hama_group') return { x: 3600, y: 150 };
   }
   if (treeType === 'penyakit') {
-    if (nodeId === 'root') return { x: 300, y: 50 };
-    if (nodeId === 'penyakit_group') return { x: 300, y: 150 };
+    if (nodeId === 'root') return { x: 3600, y: 50 };
+    if (nodeId === 'penyakit_group') return { x: 3600, y: 150 };
   }
 
   return pos;
@@ -1678,8 +1750,11 @@ export const PohonKeputusanPreview = ({
                     const endX = to.x - ux * 20;
                     const endY = to.y - uy * 20;
                     
-                    const labelX = startX + (endX - startX) * 0.35 - uy * 6;
-                    const labelY = startY + (endY - startY) * 0.35 + ux * 6;
+                    // Stagger label position: YA at 25% height, TIDAK at 70% height to prevent overlap
+                    const isYa = edge.label === "Y";
+                    const ratio = isYa ? 0.25 : 0.70;
+                    const labelX = startX + (endX - startX) * ratio + (isYa ? -14 : 14);
+                    const labelY = startY + (endY - startY) * ratio + (isYa ? 0 : -4);
 
                     const isHighlighted = highlightedElements.edges.has(`${from.id}-${to.id}`);
                     const isMuted = hoveredNodeId && !isHighlighted;
