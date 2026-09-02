@@ -966,17 +966,7 @@ export const LaporanDiagnosa = () => {
               })()}
 
               {/* Actions */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePrint("single", selectedItem)}
-                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                >
-                  <Printer className="w-4 h-4 mr-2" />
-                  Cetak Detail (PDF)
-                </Button>
-
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-gray-100">
                 <Button
                   variant="outline"
                   size="sm"
