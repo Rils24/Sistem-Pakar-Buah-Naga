@@ -101,7 +101,11 @@ export const KelolaPohonKeputusan = () => {
   const [deleteBulkConfirm, setDeleteBulkConfirm] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Helper Pembuat ID Otomatis & Unik (Bebas Bentrok)
+  /**
+   * Helper pembuat ID node otomatis & unik (bebas bentrok).
+   * Menghasilkan ID terstruktur seperti `node_g01`, `h01_g02_y`, atau `h01_confirmed`.
+   * Jika ID sudah terpakai, otomatis menambahkan suffix angka increment (e.g. `_1`, `_2`).
+   */
   const generateSmartId = useCallback(
     (gejalaId?: string, hasilVal?: string, customPrefix?: string) => {
       let basePrefix = "node";
@@ -136,6 +140,11 @@ export const KelolaPohonKeputusan = () => {
     [editingNode, gejalaList, penyakitList, nodesList]
   );
 
+  /**
+   * Mengatur konteks untuk menambahkan node/cabang baru langsung dari visual preview pohon.
+   * Mengisi ID yang disarankan secara otomatis berdasarkan ID parent dan tipe cabang (YA/TIDAK),
+   * lalu membuka dialog form penambahan node.
+   */
   const handleAddBranchFromPreview = (parentId: string, branchType: "ya" | "tidak") => {
     const parentNode = nodesList.find((n) => n.id === parentId);
     const parentPrefix = parentNode ? parentNode.id : "node";
@@ -167,6 +176,10 @@ export const KelolaPohonKeputusan = () => {
     loadData();
   }, []);
 
+  /**
+   * Mengambil (fetch) seluruh data pohon keputusan, data gejala, dan data penyakit
+   * secara bersamaan dari database Supabase, lalu memperbarui state komponen.
+   */
   const loadData = async () => {
     try {
       setLoading(true);
@@ -187,6 +200,10 @@ export const KelolaPohonKeputusan = () => {
     }
   };
 
+  /**
+   * Menghasilkan label teks deskriptif untuk suatu node berdasarkan ID node.
+   * Menampilkan kode gejala, nama penyakit/hama hasil akhir, atau penanda khusus alur.
+   */
   const getNodeLabel = (nodeId: string | null): string => {
     if (!nodeId) return "Selesai / Tanpa Target";
     const targetNode = nodesList.find((n) => n.id === nodeId);
@@ -215,6 +232,10 @@ export const KelolaPohonKeputusan = () => {
     return targetNode.nama_gejala || targetNode.id;
   };
 
+  /**
+   * Menentukan jenis/tipe node berdasarkan pola ID (seperti root, check, confirmed, cabang YA/TIDAK)
+   * untuk ditampilkan sebagai badge atau label pengenal di tabel alur.
+   */
   const getNodeTypeLabel = (nodeId: string): string => {
     if (nodeId === "root") return "🚩 Awal Diagnosa";
     if (nodeId === "hama_group") return "🐛 Kelompok Hama";
@@ -251,6 +272,10 @@ export const KelolaPohonKeputusan = () => {
     return `Langkah (${nodeId})`;
   };
 
+  /**
+   * Menformat opsi tampilan node pada dropdown select (pilihan target YA/TIDAK),
+   * melengkapi dengan ikon status, kode gejala, dan tag cabang (YA / TIDAK / TIDAK Alt).
+   */
   const getNodeOptionLabel = (n: PohonNode): string => {
     if (n.id === "root") return "🚩 [root] Awal Diagnosa (G00)";
     if (n.id === "hama_group") return "🐛 [hama_group] Kelompok Hama";
@@ -289,6 +314,14 @@ export const KelolaPohonKeputusan = () => {
     return `[${n.id}] ${n.nama_gejala || n.id}${tagJalur}`;
   };
 
+  /**
+   * Membaca daftar node dan mengelompokkannya ke dalam opsi dropdown berkategori (<optgroup>):
+   * - Gerbang Utama & Group (Root)
+   * - Alur Pertanyaan Hama (H01 - H07)
+   * - Alur Pertanyaan Penyakit (P01 - P06)
+   * - Langkah Pertanyaan Lainnya
+   * - Hasil Akhir Diagnosa (Terminal Node)
+   */
   const renderCategorizedOptions = useCallback(() => {
     const rootGroupNodes = nodesList.filter(
       (n) => n.id === "root" || n.id === "hama_group" || n.id === "penyakit_group"
@@ -360,6 +393,9 @@ export const KelolaPohonKeputusan = () => {
     );
   }, [nodesList, penyakitList]);
 
+  /**
+   * Membuka modal dialog penambahan node baru dengan mengosongkan/mereset form state.
+   */
   const handleAdd = () => {
     setEditingNode(null);
     setFormData({
@@ -376,6 +412,9 @@ export const KelolaPohonKeputusan = () => {
     setIsDialogOpen(true);
   };
 
+  /**
+   * Membuka modal dialog edit dengan mengisi form state sesuai data node yang dipilih.
+   */
   const handleEdit = (node: PohonNode) => {
     setEditingNode(node);
     setFormData({
@@ -392,6 +431,10 @@ export const KelolaPohonKeputusan = () => {
     setIsDialogOpen(true);
   };
 
+  /**
+   * Menghapus satu node pohon keputusan dari database Supabase berdasarkan ID-nya,
+   * kemudian memperbarui daftar node di state lokal.
+   */
   const handleDelete = async (id: string) => {
     setDeleting(true);
     try {
@@ -408,6 +451,10 @@ export const KelolaPohonKeputusan = () => {
     }
   };
 
+  /**
+   * Menangani toggle checkbox "Pilih Semua" untuk memilih/membatalkan pilihan
+   * seluruh node yang sedang tampil pada halaman tabel aktif.
+   */
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedIds((prev) => [
@@ -420,12 +467,19 @@ export const KelolaPohonKeputusan = () => {
     }
   };
 
+  /**
+   * Menangani toggle seleksi checkbox pada baris tabel tertentu untuk aksi hapus massal.
+   */
   const handleSelectRow = (id: string, checked: boolean) => {
     setSelectedIds((prev) =>
       checked ? [...prev, id] : prev.filter((item) => item !== id),
     );
   };
 
+  /**
+   * Menghapus beberapa node yang dipilih secara bersamaan (bulk deletion)
+   * dari database Supabase menggunakan Promise.all.
+   */
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
     setDeleting(true);
@@ -445,6 +499,11 @@ export const KelolaPohonKeputusan = () => {
     }
   };
 
+  /**
+   * Menangani perubahan pilihan dropdown gejala pada form dialog.
+   * Mengisi otomatis kode gejala, nama gejala, nilai CF pakar dari master gejala,
+   * dan membuat Smart ID baru secara otomatis (jika menambah node baru).
+   */
   const handleGejalaChange = (gejalaId: string) => {
     if (!gejalaId) {
       setFormData((prev) => ({
@@ -472,6 +531,10 @@ export const KelolaPohonKeputusan = () => {
     }
   };
 
+  /**
+   * Menangani perubahan pilihan dropdown hasil akhir (penyakit/hama) pada form dialog.
+   * Otomatis membuat ID terminal (e.g. `p01_confirmed`) dan mengisi keterangan hasil akhir.
+   */
   const handleHasilChange = (hasilVal: string) => {
     if (!hasilVal) {
       setFormData((prev) => ({ ...prev, hasil: "" }));
@@ -496,6 +559,13 @@ export const KelolaPohonKeputusan = () => {
     });
   };
 
+  /**
+   * Menangani proses simpan form (tambah atau edit node pohon keputusan).
+   * - Memeriksa dan menyelesaikan konflik ID otomatis.
+   * - Memperbarui referensi target YA/TIDAK pada node induk jika ID node diubah.
+   * - Otomatis menghubungkan node baru ke parent node jika dibuat dari konteks visual preview.
+   * - Menyimpan payload data ke Supabase (insert/update).
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 

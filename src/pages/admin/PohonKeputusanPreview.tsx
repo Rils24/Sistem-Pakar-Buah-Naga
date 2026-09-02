@@ -200,6 +200,11 @@ const STATIC_NODE_POSITIONS: Record<string, { x: number; y: number }> = {
   "penyakit_not_found": { x: 2480, y: 350 }
 };
 
+/**
+ * Mengambil koordinat X dan Y posisi visual node pada diagram canvas SVG.
+ * Menangani penyesuaian horizontal offset ketika dalam tampilan Gabungan (Hama & Penyakit)
+ * serta shift posisi untuk node root dan grup utama.
+ */
 const getCoords = (
   nodeId: string,
   treeType: PreviewTreeType,
@@ -229,6 +234,11 @@ const getCoords = (
   return pos;
 };
 
+/**
+ * Generator kalkulasi posisi otomatis (fallback positions) untuk node-node dinamis atau baru.
+ * Mengelompokkan node berdasarkan grup Hama (H01-H07) atau Penyakit (P01-P06),
+ * kemudian menjalankan penelusuran Graph BFS untuk menempatkan node pada koordinat X/Y tanpa tumpang tindih.
+ */
 const generateFallbackPositions = (nodes: PohonNode[]) => {
   const positions: Record<string, { x: number; y: number }> = { ...STATIC_NODE_POSITIONS };
   if (!nodes || nodes.length === 0) return positions;
@@ -375,6 +385,11 @@ const generateFallbackPositions = (nodes: PohonNode[]) => {
   return positions;
 };
 
+/**
+ * Memeriksa dan memvalidasi apakah suatu node termasuk dalam kategori tab tampilan aktif:
+ * "hama", "penyakit", atau "gabungan".
+ * Menggunakan penelusuran rekursif leluhur (ancestor tracing) untuk memastikan node berada di alur yang benar.
+ */
 const isNodeInTreeType = (
   node: PohonNode,
   treeType: PreviewTreeType,
@@ -498,6 +513,11 @@ export const PohonKeputusanPreview = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingNode, setDeletingNode] = useState(false);
 
+  /**
+   * Menghapus node langsung dari canvas visual preview.
+   * Terlebih dahulu memutus/membersihkan referensi target pada node parent,
+   * lalu menghapus record node dari database Supabase dan merefresh data.
+   */
   const handleDeleteBranchNode = async (id: string) => {
     setDeletingNode(true);
     try {
@@ -532,7 +552,10 @@ export const PohonKeputusanPreview = ({
     }
   };
 
-  // Handler untuk membersihkan jalur terputus (missing target ?)
+  /**
+   * Membersihkan sambungan jalur yang terputus (missing target link '?')
+   * dengan menghapus referensi target ID yang tidak valid dari node induk.
+   */
   const handleClearMissingLink = async (targetId: string) => {
     setDeletingNode(true);
     try {
@@ -561,7 +584,10 @@ export const PohonKeputusanPreview = ({
     }
   };
 
-  // Handler untuk buat node baru langsung mengisi ID missing target
+  /**
+   * Membuka modal pembuat node baru yang otomatis disiapkan dengan ID target yang hilang (missing target),
+   * sehingga pengguna dapat langsung membuatkan node pengganti.
+   */
   const handleCreateMissingNode = (targetId: string) => {
     const parentNode = nodesList.find((n) => n.ya === targetId || n.tidak === targetId);
     const parentId = parentNode ? parentNode.id : "node";
@@ -582,7 +608,9 @@ export const PohonKeputusanPreview = ({
     setBranchModal({ isOpen: true, parentId, branchType });
   };
 
-  // Helper Auto ID Unik untuk Preview Modal
+  /**
+   * Helper pembuat ID otomatis & unik khusus untuk form cabang pada visual preview dialog.
+   */
   const generateSmartIdForPreview = useCallback(
     (gejalaId?: string, hasilVal?: string, customPrefix?: string) => {
       let basePrefix = customPrefix || "node";
@@ -611,6 +639,10 @@ export const PohonKeputusanPreview = ({
     [nodesList, gejalaList, penyakitList]
   );
 
+  /**
+   * Membuka modal untuk menambah cabang (YA / TIDAK) dari node tertentu pada visual preview,
+   * memungkinkan pengguna memilih menghubungkan ke node eksis atau membuat node baru.
+   */
   const handleOpenAddBranchModal = (parentId: string, branchType: 'ya' | 'tidak') => {
     const parentPrefix = parentId.replace(/^(node_|g_?)/i, "");
     const branchSuffix = branchType === "ya" ? "y" : "t";
@@ -639,6 +671,9 @@ export const PohonKeputusanPreview = ({
     setBranchModal({ isOpen: true, parentId, branchType });
   };
 
+  /**
+   * Menangani perubahan pilihan gejala pada modal penambahan cabang dari visual preview canvas.
+   */
   const handleBranchGejalaChange = (gejalaId: string) => {
     if (!gejalaId) {
       setBranchFormData((prev) => ({
@@ -664,6 +699,9 @@ export const PohonKeputusanPreview = ({
     }
   };
 
+  /**
+   * Menangani perubahan pilihan hasil akhir diagnosa pada modal cabang di preview canvas.
+   */
   const handleBranchHasilChange = (hasilVal: string) => {
     if (!hasilVal) {
       setBranchFormData((prev) => ({ ...prev, hasil: "" }));
@@ -686,6 +724,10 @@ export const PohonKeputusanPreview = ({
     }));
   };
 
+  /**
+   * Menyiapkan payload dan menyimpan cabang baru/penyambungan node pada visual preview.
+   * Mengirim perubahan ke Supabase dan menyegarkan diagram.
+   */
   const handleSaveBranchNode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!branchModal) return;
@@ -777,7 +819,10 @@ export const PohonKeputusanPreview = ({
     }
   };
 
-  // Reset zoom and pan on type change or opening
+  /**
+   * Mengatur ulang posisi (pan) dan tingkat perbesaran (zoom) dari canvas diagram
+   * agar pohon terpusat dengan rapi sesuai dengan tipe pohon yang aktif (Hama, Penyakit, atau Gabungan).
+   */
   const handleResetZoom = useCallback(() => {
     const containerWidth = previewCanvasRef.current?.clientWidth || 800;
     const containerHeight = previewCanvasRef.current?.clientHeight || 600;
