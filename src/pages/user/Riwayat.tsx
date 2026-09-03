@@ -286,7 +286,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <div className="text-right">
                           <p className="text-2xl font-bold text-pink-600">
-                            {Math.round(cfValue * 100)}%
+                            {(cfValue * 100).toFixed(2)}%
                           </p>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${getStatusColor(cfValue)}`}>
                             {getCFLabel(cfValue)}
@@ -473,7 +473,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                 </div>
                 <div className="text-center flex-shrink-0">
                   <p className="text-4xl font-extrabold text-pink-600 leading-none">
-                    {Math.round((selectedItem.cf_tertinggi || selectedItem.hasil_cf?.[0]?.cf_value || 0) * 100)}%
+                    {((selectedItem.cf_tertinggi || selectedItem.hasil_cf?.[0]?.cf_value || 0) * 100).toFixed(2)}%
                   </p>
                   <span className={`mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                     getStatusColor(selectedItem.cf_tertinggi || 0)
@@ -498,33 +498,37 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                   <div className="space-y-2">
                     {[...selectedItem.hasil_cf]
                       .sort((a, b) => b.cf_value - a.cf_value)
-                      .map((r, idx) => (
-                        <div key={r.penyakit_id || idx} className={`rounded-xl p-3 border ${
-                          idx === 0 ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-100'
-                        }`}>
-                          <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
-                              idx === 0 ? 'bg-pink-500' : 'bg-gray-400'
-                            }`}>{idx + 1}</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className={`font-medium text-sm ${idx === 0 ? 'text-pink-900' : 'text-gray-700'}`}>
-                                  {r.nama_penyakit}
-                                </span>
-                                <span className={`text-sm font-bold flex-shrink-0 ${idx === 0 ? 'text-pink-600' : 'text-gray-500'}`}>
-                                  {r.persentase || Math.round((r.cf_value || 0) * 100)}%
-                                </span>
-                              </div>
-                              <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
-                                <div
-                                  className={`h-1.5 rounded-full ${idx === 0 ? 'bg-gradient-to-r from-pink-400 to-rose-500' : 'bg-gray-400'}`}
-                                  style={{ width: `${r.persentase || Math.round((r.cf_value || 0) * 100)}%` }}
-                                />
+                      .map((r, idx) => {
+                        const val = r.persentase !== undefined ? r.persentase : ((r.cf_value || 0) * 100);
+                        const valStr = typeof val === 'number' ? val.toFixed(2) : parseFloat(val).toFixed(2);
+                        return (
+                          <div key={r.penyakit_id || idx} className={`rounded-xl p-3 border ${
+                            idx === 0 ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-100'
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
+                                idx === 0 ? 'bg-pink-500' : 'bg-gray-400'
+                              }`}>{idx + 1}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`font-medium text-sm ${idx === 0 ? 'text-pink-900' : 'text-gray-700'}`}>
+                                    {r.nama_penyakit}
+                                  </span>
+                                  <span className={`text-sm font-bold flex-shrink-0 ${idx === 0 ? 'text-pink-600' : 'text-gray-500'}`}>
+                                    {valStr}%
+                                  </span>
+                                </div>
+                                <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
+                                  <div
+                                    className={`h-1.5 rounded-full ${idx === 0 ? 'bg-gradient-to-r from-pink-400 to-rose-500' : 'bg-gray-400'}`}
+                                    style={{ width: `${Math.max(parseFloat(valStr), 2)}%` }}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 </div>
               )}

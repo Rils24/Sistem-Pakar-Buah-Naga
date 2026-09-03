@@ -53,6 +53,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
   const [hasil, setHasil] = useState<string | null>(null);
   const [cfTotal, setCfTotal] = useState<number>(0);
   const [detailPerhitungan, setDetailPerhitungan] = useState<DetailPerhitunganCFItem[]>([]);
+  const [allCFResults, setAllCFResults] = useState<CFResultCalculated[]>([]);
   const [loading, setLoading] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -137,14 +138,6 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
 
   const currentNode = getNodeById(currentNodeId);
 
-  // Auto-forward untuk node transisi (group nodes yang bukan pertanyaan)
-  useEffect(() => {
-    if (!currentNode || !isDataReady) return;
-    if (currentNode.ya && !currentNode.tidak && !currentNode.hasil) {
-      setCurrentNodeId(currentNode.ya);
-    }
-  }, [currentNodeId, currentNode, isDataReady]);
-
   // Hitung CF untuk SEMUA penyakit berdasarkan gejala "Ya"
   const calculateCFResult = useCallback(async (jawabans: JawabanDiagnosa[], confirmedPenyakitId: string) => {
     const yaJawabans = jawabans.filter(j => 
@@ -196,7 +189,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
         nama_penyakit: p.nama,
         tipe: p.tipe,
         cf_value: cfKombinasi,
-        persentase: Math.round(cfKombinasi * 100),
+        persentase: parseFloat((cfKombinasi * 100).toFixed(2)),
         gejala_cocok: matching.length,
         total_gejala: allGejalaForP.size,
         detail_perhitungan: details
@@ -204,6 +197,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     });
 
     allResults.sort((a, b) => b.cf_value - a.cf_value);
+    setAllCFResults(allResults);
 
     const isTreeNotFound = ['not_found', 'hama_not_found', 'penyakit_not_found'].includes(confirmedPenyakitId);
     let targetPenyakitId = confirmedPenyakitId;
@@ -263,6 +257,21 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     }
   }, [penyakitList, rulesRef, getPenyakitById, user.id]);
 
+  // Auto-forward untuk node transisi & pemrosesan node hasil/terminal
+  useEffect(() => {
+    if (!currentNode || !isDataReady || hasil) return;
+
+    if (currentNode.hasil) {
+      setHasil(currentNode.hasil);
+      calculateCFResult(jawabanList, currentNode.hasil);
+      return;
+    }
+
+    if (currentNode.ya && !currentNode.tidak) {
+      setCurrentNodeId(currentNode.ya);
+    }
+  }, [currentNodeId, currentNode, isDataReady, hasil, calculateCFResult, jawabanList]);
+
   // Forward Chaining: proses jawaban dan pindah ke node berikutnya
   const handleJawaban = useCallback((jawaban: 'ya' | 'tidak') => {
     if (!currentNode) return;
@@ -311,6 +320,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
     setHasil(null);
     setCfTotal(0);
     setDetailPerhitungan([]);
+    setAllCFResults([]);
     setIsFallback(false);
   };
 
@@ -463,7 +473,7 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
             <CardContent className="p-6 text-center flex flex-col items-center justify-center h-full">
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Tingkat Kepastian (CF)</p>
               <p className="text-4xl font-extrabold text-pink-600 leading-none my-2">
-                {Math.round(cfTotal * 100)}%
+                {(cfTotal * 100).toFixed(2)}%
               </p>
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-pink-50 text-pink-700 border border-pink-200">
                 {getCFInterpretasi(cfTotal)}
@@ -472,6 +482,65 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Semua Kemungkinan Hama / Penyakit (Certainty Factor) */}
+        {allCFResults.length > 1 && (
+          <Card className="border-0 shadow-md overflow-hidden">
+            <CardContent className="p-6">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 text-base">
+                <span className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <Stethoscope className="w-4 h-4 text-indigo-600" />
+                </span>
+                Semua Kemungkinan Diagnosa
+                <span className="ml-auto text-xs text-gray-400 font-normal">
+                  {allCFResults.length} terdeteksi
+                </span>
+              </h4>
+              <div className="space-y-2.5">
+                {allCFResults.map((r, idx) => {
+                  const isPrimary = r.penyakit_id === (penyakit?.id || hasil);
+                  const displayPercent = r.persentase !== undefined ? r.persentase.toFixed(2) : (r.cf_value * 100).toFixed(2);
+                  return (
+                    <div key={r.penyakit_id || idx} className={`rounded-xl p-3.5 border transition-all ${
+                      isPrimary ? 'bg-pink-50/80 border-pink-200 shadow-xs' : 'bg-gray-50/70 border-gray-100'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white ${
+                          isPrimary ? 'bg-pink-600' : 'bg-gray-400'
+                        }`}>{idx + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`font-semibold text-sm truncate ${isPrimary ? 'text-pink-950' : 'text-gray-800'}`}>
+                                {r.nama_penyakit}
+                              </span>
+                              {isPrimary && (
+                                <span className="text-[10px] font-bold bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full border border-pink-200 shrink-0">
+                                  Hasil Utama FC
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-sm font-extrabold flex-shrink-0 ${isPrimary ? 'text-pink-600' : 'text-gray-500'}`}>
+                              {displayPercent}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200/80 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all duration-500 ${
+                                isPrimary ? 'bg-gradient-to-r from-pink-500 to-rose-600' : 'bg-gray-400'
+                              }`}
+                              style={{ width: `${Math.max(parseFloat(displayPercent), 2)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Gambar Hama / Penyakit */}
         {penyakit?.image_urls && penyakit.image_urls.length > 0 && (

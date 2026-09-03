@@ -238,7 +238,7 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
                       ? 'text-yellow-600'
                       : 'text-green-600'
                   }`}>
-                    {Math.round((stats.diagnosaTerakhir.cf_tertinggi || 0) * 100)}%
+                    {((stats.diagnosaTerakhir.cf_tertinggi || 0) * 100).toFixed(2)}%
                   </p>
                 </div>
                 <Button 

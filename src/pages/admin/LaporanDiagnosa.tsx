@@ -373,7 +373,7 @@ export const LaporanDiagnosa = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {Math.round(avgCF * 100)}%
+                  {(avgCF * 100).toFixed(2)}%
                 </p>
                 <p className="text-xs text-gray-400">Rata-rata CF</p>
               </div>
@@ -657,7 +657,7 @@ export const LaporanDiagnosa = () => {
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-pink-600">
-                              {Math.round(cfValue * 100)}%
+                              {(cfValue * 100).toFixed(2)}%
                             </span>
                             <span
                               className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${getStatusColor(cfValue)}`}
@@ -786,7 +786,7 @@ export const LaporanDiagnosa = () => {
                 </div>
                 <div className="text-center flex-shrink-0">
                   <p className="text-4xl font-extrabold text-pink-600 leading-none">
-                    {Math.round((selectedItem.cf_tertinggi || 0) * 100)}%
+                    {((selectedItem.cf_tertinggi || 0) * 100).toFixed(2)}%
                   </p>
                   <span
                     className={`mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(selectedItem.cf_tertinggi || 0)}`}
@@ -874,16 +874,14 @@ export const LaporanDiagnosa = () => {
                                 <span
                                   className={`text-sm font-bold flex-shrink-0 ${idx === 0 ? "text-pink-600" : "text-gray-500"}`}
                                 >
-                                  {r.persentase ||
-                                    Math.round((r.cf_value || 0) * 100)}
-                                  %
+                                  {(r.persentase !== undefined ? (typeof r.persentase === 'number' ? r.persentase : parseFloat(r.persentase)) : ((r.cf_value || 0) * 100)).toFixed(2)}%
                                 </span>
                               </div>
                               <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
                                 <div
                                   className={`h-1.5 rounded-full ${idx === 0 ? "bg-gradient-to-r from-pink-400 to-rose-500" : "bg-gray-400"}`}
                                   style={{
-                                    width: `${r.persentase || Math.round((r.cf_value || 0) * 100)}%`,
+                                    width: `${r.persentase !== undefined ? (typeof r.persentase === 'number' ? r.persentase : parseFloat(r.persentase)) : ((r.cf_value || 0) * 100)}%`,
                                   }}
                                 />
                               </div>
@@ -1201,7 +1199,7 @@ export const LaporanDiagnosa = () => {
             <div className="text-right bg-white px-4 py-2 rounded-lg border border-pink-200 shadow-xs">
               <p className="text-xs text-slate-500 font-medium">Tingkat Kepastian (CF)</p>
               <p className="text-2xl font-black text-pink-600 leading-none mt-0.5">
-                {Math.round((singlePrintItem.cf_tertinggi || 0) * 100)}%
+                {((singlePrintItem.cf_tertinggi || 0) * 100).toFixed(2)}%
               </p>
               <span className="inline-block mt-1 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
                 {getCFLabel(singlePrintItem.cf_tertinggi || 0)}
@@ -1257,7 +1255,9 @@ export const LaporanDiagnosa = () => {
                       <tr key={idx} className={`border-b border-slate-200 ${idx === 0 ? "bg-pink-50 font-bold" : "odd:bg-slate-50"}`}>
                         <td className="p-1.5 border-r border-slate-300 text-center font-mono">#{idx + 1}</td>
                         <td className="p-1.5 border-r border-slate-300">{r.nama_penyakit}</td>
-                        <td className="p-1.5 text-center font-mono">{r.persentase || Math.round((r.cf_value || 0) * 100)}%</td>
+                        <td className="p-1.5 text-center font-mono font-semibold text-slate-900">
+                          {(r.persentase !== undefined ? (typeof r.persentase === 'number' ? r.persentase : parseFloat(r.persentase)) : ((r.cf_value || 0) * 100)).toFixed(2)}%
+                        </td>
                       </tr>
                     ))}
                 </tbody>
@@ -1353,10 +1353,8 @@ export const LaporanDiagnosa = () => {
             <div>
               <p className="text-slate-500 font-medium text-[11px]">Rata-rata Keyakinan (CF)</p>
               <p className="text-base font-extrabold text-pink-600">
-                {Math.round(
-                  (getExportData((printTarget as any) || "filtered").reduce((s, i) => s + (i.cf_tertinggi || 0), 0) /
-                    (getExportData((printTarget as any) || "filtered").length || 1)) * 100
-                )}%
+                {((getExportData((printTarget as any) || "filtered").reduce((s, i) => s + (i.cf_tertinggi || 0), 0) /
+                  (getExportData((printTarget as any) || "filtered").length || 1)) * 100).toFixed(2)}%
               </p>
             </div>
             <div>
@@ -1405,7 +1403,7 @@ export const LaporanDiagnosa = () => {
                       {penyakit}
                     </td>
                     <td className="border border-slate-300 p-2 text-center">
-                      <span className="font-bold text-pink-600">{Math.round(cfVal * 100)}%</span>
+                      <span className="font-bold text-pink-600">{(cfVal * 100).toFixed(2)}%</span>
                       <p className="text-[10px] text-slate-600 font-medium">{getCFLabel(cfVal)}</p>
                     </td>
                     <td className="border border-slate-300 p-2 text-[11px] text-slate-700 leading-tight">

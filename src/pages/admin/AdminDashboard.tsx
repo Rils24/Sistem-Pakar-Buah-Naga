@@ -225,7 +225,7 @@ export const AdminDashboard = () => {
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {Math.round((item.cf_tertinggi || 0) * 100)}%
+                      {((item.cf_tertinggi || 0) * 100).toFixed(2)}%
                     </span>
                   </div>
                 </div>
