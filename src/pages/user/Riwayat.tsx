@@ -247,7 +247,11 @@ export const Riwayat = ({ user }: RiwayatProps) => {
           <div className="space-y-3">
             {paginatedList.map((item, index) => {
               const cfValue = item.cf_tertinggi || 0;
-              const penyakitName = item.nama_penyakit_terpilih || item.hasil_cf?.[0]?.nama_penyakit || 'Tidak diketahui';
+              const firstResult = item.hasil_cf?.[0];
+              const displayPercent = firstResult?.persentase !== undefined
+                ? (typeof firstResult.persentase === 'number' ? firstResult.persentase : parseFloat(String(firstResult.persentase))).toFixed(2)
+                : (cfValue * 100).toFixed(2);
+              const penyakitName = item.nama_penyakit_terpilih || firstResult?.nama_penyakit || 'Tidak diketahui';
 
               return (
                 <Card 
@@ -286,7 +290,7 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <div className="text-right">
                           <p className="text-2xl font-bold text-pink-600">
-                            {(cfValue * 100).toFixed(2)}%
+                            {displayPercent}%
                           </p>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${getStatusColor(cfValue)}`}>
                             {getCFLabel(cfValue)}
@@ -473,7 +477,13 @@ export const Riwayat = ({ user }: RiwayatProps) => {
                 </div>
                 <div className="text-center flex-shrink-0">
                   <p className="text-4xl font-extrabold text-pink-600 leading-none">
-                    {((selectedItem.cf_tertinggi || selectedItem.hasil_cf?.[0]?.cf_value || 0) * 100).toFixed(2)}%
+                    {(() => {
+                      const firstRes = selectedItem.hasil_cf?.[0];
+                      if (firstRes?.persentase !== undefined) {
+                        return (typeof firstRes.persentase === 'number' ? firstRes.persentase : parseFloat(String(firstRes.persentase))).toFixed(2);
+                      }
+                      return ((selectedItem.cf_tertinggi || 0) * 100).toFixed(2);
+                    })()}%
                   </p>
                   <span className={`mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                     getStatusColor(selectedItem.cf_tertinggi || 0)

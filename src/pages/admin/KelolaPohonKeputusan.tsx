@@ -51,7 +51,7 @@ import {
 import { TablePagination } from "@/components/ui/table-pagination";
 import { toast } from "sonner";
 import type { Gejala, Penyakit } from "@/types";
-import { PohonKeputusanPreview } from "./PohonKeputusanPreview";
+import { PohonKeputusanPreview } from "./pohonPreview";
 
 const ITEMS_PER_PAGE = 10;
 

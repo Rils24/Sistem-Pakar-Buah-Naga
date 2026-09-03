@@ -176,11 +176,11 @@ export const Diagnosa = ({ user }: DiagnosaProps) => {
           gejalaNama: j.namaGejala,
           cfUser: 1.0,
           cfPakar: j.cfPakar,
-          cfHasil: parseFloat(cfHasil.toFixed(3)),
-          cfKombinasi: parseFloat(cfKombinasi.toFixed(3)),
+          cfHasil: parseFloat(cfHasil.toFixed(4)),
+          cfKombinasi: parseFloat(cfKombinasi.toFixed(4)),
           rumus: idx === 0
-            ? `CF = 1.0 × ${j.cfPakar} = ${cfHasil.toFixed(3)}`
-            : `CF = ${cfSebelumnya.toFixed(3)} + ${cfHasil.toFixed(3)} × (1 - ${cfSebelumnya.toFixed(3)}) = ${cfKombinasi.toFixed(3)}`
+            ? `CF = 1.0 × ${j.cfPakar} = ${cfHasil.toFixed(4)}`
+            : `CF = ${cfSebelumnya.toFixed(4)} + ${cfHasil.toFixed(4)} × (1 - ${cfSebelumnya.toFixed(4)}) = ${cfKombinasi.toFixed(4)}`
         });
       });
 

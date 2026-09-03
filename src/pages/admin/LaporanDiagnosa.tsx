@@ -657,7 +657,13 @@ export const LaporanDiagnosa = () => {
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-pink-600">
-                              {(cfValue * 100).toFixed(2)}%
+                              {(() => {
+                                const firstRes = item.hasil_cf?.[0];
+                                if (firstRes?.persentase !== undefined) {
+                                  return (typeof firstRes.persentase === 'number' ? firstRes.persentase : parseFloat(String(firstRes.persentase))).toFixed(2);
+                                }
+                                return (cfValue * 100).toFixed(2);
+                              })()}%
                             </span>
                             <span
                               className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${getStatusColor(cfValue)}`}
@@ -786,7 +792,13 @@ export const LaporanDiagnosa = () => {
                 </div>
                 <div className="text-center flex-shrink-0">
                   <p className="text-4xl font-extrabold text-pink-600 leading-none">
-                    {((selectedItem.cf_tertinggi || 0) * 100).toFixed(2)}%
+                    {(() => {
+                      const firstRes = selectedItem.hasil_cf?.[0];
+                      if (firstRes?.persentase !== undefined) {
+                        return (typeof firstRes.persentase === 'number' ? firstRes.persentase : parseFloat(String(firstRes.persentase))).toFixed(2);
+                      }
+                      return ((selectedItem.cf_tertinggi || 0) * 100).toFixed(2);
+                    })()}%
                   </p>
                   <span
                     className={`mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(selectedItem.cf_tertinggi || 0)}`}
@@ -1199,7 +1211,13 @@ export const LaporanDiagnosa = () => {
             <div className="text-right bg-white px-4 py-2 rounded-lg border border-pink-200 shadow-xs">
               <p className="text-xs text-slate-500 font-medium">Tingkat Kepastian (CF)</p>
               <p className="text-2xl font-black text-pink-600 leading-none mt-0.5">
-                {((singlePrintItem.cf_tertinggi || 0) * 100).toFixed(2)}%
+                {(() => {
+                  const firstRes = singlePrintItem.hasil_cf?.[0];
+                  if (firstRes?.persentase !== undefined) {
+                    return (typeof firstRes.persentase === 'number' ? firstRes.persentase : parseFloat(String(firstRes.persentase))).toFixed(2);
+                  }
+                  return ((singlePrintItem.cf_tertinggi || 0) * 100).toFixed(2);
+                })()}%
               </p>
               <span className="inline-block mt-1 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
                 {getCFLabel(singlePrintItem.cf_tertinggi || 0)}

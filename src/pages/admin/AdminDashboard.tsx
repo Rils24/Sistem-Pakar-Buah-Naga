@@ -225,7 +225,13 @@ export const AdminDashboard = () => {
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {((item.cf_tertinggi || 0) * 100).toFixed(2)}%
+                      {(() => {
+                        const firstRes = item.hasil_cf?.[0];
+                        if (firstRes?.persentase !== undefined) {
+                          return (typeof firstRes.persentase === 'number' ? firstRes.persentase : parseFloat(String(firstRes.persentase))).toFixed(2);
+                        }
+                        return ((item.cf_tertinggi || 0) * 100).toFixed(2);
+                      })()}%
                     </span>
                   </div>
                 </div>

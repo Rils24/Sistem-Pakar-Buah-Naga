@@ -238,7 +238,13 @@ export const UserDashboard = ({ user }: UserDashboardProps) => {
                       ? 'text-yellow-600'
                       : 'text-green-600'
                   }`}>
-                    {((stats.diagnosaTerakhir.cf_tertinggi || 0) * 100).toFixed(2)}%
+                    {(() => {
+                      const firstRes = stats.diagnosaTerakhir.hasil_cf?.[0];
+                      if (firstRes?.persentase !== undefined) {
+                        return (typeof firstRes.persentase === 'number' ? firstRes.persentase : parseFloat(String(firstRes.persentase))).toFixed(2);
+                      }
+                      return ((stats.diagnosaTerakhir.cf_tertinggi || 0) * 100).toFixed(2);
+                    })()}%
                   </p>
                 </div>
                 <Button 
